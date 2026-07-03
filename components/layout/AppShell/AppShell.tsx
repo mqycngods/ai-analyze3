@@ -5,9 +5,8 @@ import {
   Brain,
   ChartColumn,
   ClipboardCheck,
-  MessageSquareText,
+  Tags,
   Settings,
-  Waypoints,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { NavId } from "@/types";
@@ -26,9 +25,8 @@ type AppShellProps = {
 
 const navIcons: Record<NavId, LucideIcon> = {
   overview: ChartColumn,
+  brands: Tags,
   prompts: Brain,
-  chats: MessageSquareText,
-  citations: Waypoints,
   knowledge: BookOpen,
   insights: ClipboardCheck,
   settings: Settings,

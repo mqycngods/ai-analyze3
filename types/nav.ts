@@ -1,9 +1,8 @@
 // 导航相关类型
 export type NavId =
   | "overview"
+  | "brands"
   | "prompts"
-  | "chats"
-  | "citations"
   | "knowledge"
   | "insights"
   | "settings";

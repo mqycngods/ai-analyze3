@@ -2,15 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { OverviewPage } from "@/features/overview/components";
+import { BrandsPage } from "@/features/brands/components";
 import { PromptsPage } from "@/features/prompts/components";
-import { ChatsPage } from "@/features/chats/components";
-import { CitationsPage } from "@/features/citations/components";
 import { KnowledgePage } from "@/features/knowledge/components";
 import { InsightsPage } from "@/features/insights/components";
 import { SettingsPage } from "@/features/settings/components";
 import { AppShell } from "@/components/layout/AppShell";
+import { GlobalFilters } from "@/features/shared/components";
+import { defaultGlobalFilters } from "@/features/shared/data/filter-options";
 import { navItems } from "@/features/shared/data/nav.data";
 import type { NavId } from "@/types";
+import type { GlobalFilterState } from "@/types/analytics";
 
 type RouteState = {
   title: string;
@@ -20,6 +22,7 @@ type RouteState = {
 
 export function DashboardApp() {
   const [activePage, setActivePage] = useState<NavId>("overview");
+  const [globalFilters, setGlobalFilters] = useState<GlobalFilterState>(defaultGlobalFilters);
   const [toast, setToast] = useState("");
 
   const routeState = useMemo<RouteState>(() => {
@@ -38,14 +41,15 @@ export function DashboardApp() {
   }
 
   const page = {
-    overview: <OverviewPage navigate={setActivePage} notify={notify} />,
+    overview: <OverviewPage filters={globalFilters} navigate={setActivePage} notify={notify} />,
+    brands: <BrandsPage notify={notify} />,
     prompts: <PromptsPage notify={notify} />,
-    chats: <ChatsPage />,
-    citations: <CitationsPage notify={notify} />,
     knowledge: <KnowledgePage notify={notify} />,
-    insights: <InsightsPage notify={notify} />,
+    insights: <InsightsPage filters={globalFilters} notify={notify} />,
     settings: <SettingsPage notify={notify} />,
   }[activePage];
+
+  const showGlobalFilters = activePage === "overview" || activePage === "insights";
 
   return (
     <>
@@ -57,6 +61,9 @@ export function DashboardApp() {
         onNavigate={setActivePage}
         title={routeState.title}
       >
+        {showGlobalFilters ? (
+          <GlobalFilters className="mb-6" onChange={setGlobalFilters} value={globalFilters} />
+        ) : null}
         {page}
       </AppShell>
       <div className={`toast ${toast ? "show" : ""}`} role="status" aria-live="polite">

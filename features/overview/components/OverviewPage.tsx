@@ -1,405 +1,1188 @@
 "use client";
 
-import { TrendingUp, Sparkles, Calendar, Bell, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  Bot,
+  ChevronDown,
+  Download,
+  ExternalLink,
+  MessageSquare,
+  MoreHorizontal,
+  Quote,
+  Search,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { Button, Card } from "@/ui";
-import { overviewMetrics, visibilityTrend, shareOfVoice, sourceCoverage, actionRecommendations, brands } from "@/features/overview/data/overview.mock";
+import {
+  averagePositionTrend,
+  rankingRows,
+  shareOfVoice,
+  shareRows,
+  visibilityRows,
+  visibilityTrend,
+} from "@/features/overview/data/overview.mock";
+import type { BrandMetric, GlobalFilterState, ShareOfVoiceItem } from "@/types/analytics";
 import type { NavId } from "@/types";
+import { cn } from "@/lib/utils";
 
 type PageProps = {
+  filters: GlobalFilterState;
   navigate?: (page: NavId) => void;
   notify?: (message: string) => void;
 };
 
-type MetricCardProps = {
-  label: string;
-  value: string;
-  delta: string;
-  deltaType: "positive" | "negative" | "neutral";
-  note: string;
-  badge?: string;
-  badgeType?: "success" | "warning" | "neutral";
+type TrendPoint = {
+  date: string;
+  value: number;
 };
 
-function MetricCard({ label, value, delta, deltaType, note, badge, badgeType }: MetricCardProps) {
-  const deltaColor =
-    deltaType === "positive"
-      ? "text-success"
-      : deltaType === "negative"
-        ? "text-destructive"
-        : "text-muted-foreground";
+type ChartPanelProps = {
+  title: string;
+  value: string;
+  children: React.ReactNode;
+  legend: readonly { label: string; color: string }[];
+};
 
+type RankingTableProps = {
+  title: string;
+  value: string;
+  valueLabel: string;
+  rows: BrandMetric[];
+  mode: "score" | "share" | "rank";
+  selectedBrand?: string;
+  onExpand?: () => void;
+};
+
+type OverviewTab = "visibility" | "citation" | "sentiment" | "chats";
+
+type CitationRow = {
+  domain: string;
+  value: string;
+  color: string;
+};
+
+type CitationCategory = {
+  label: string;
+  name: string;
+  value: number;
+  color: string;
+};
+
+type CitationKind = "社交" | "赢得媒体" | "其他";
+
+type PopularCitationDomain = {
+  rank: string;
+  domain: string;
+  kind: CitationKind;
+  share: string;
+  tag: string;
+  color: string;
+};
+
+type PopularCitationPage = {
+  rank: string;
+  page: string;
+  kind: CitationKind;
+  mentioned: "未提及" | "已提及" | "Not Checked";
+  firstCitation: string;
+  share: string;
+  tag: string;
+  color: string;
+};
+
+type ChatRecord = {
+  prompt: string;
+  answer: string;
+  submitter: string;
+  sources: string[];
+  features: string;
+  status: string;
+  location: string;
+  created: string;
+  accent: string;
+};
+
+const overviewTabs: { id: OverviewTab; label: string }[] = [
+  { id: "visibility", label: "可见性" },
+  { id: "citation", label: "引用" },
+  { id: "sentiment", label: "情绪" },
+  { id: "chats", label: "所有聊天" },
+];
+
+const citationTrend = [
+  { date: "07-01", value: 0 },
+  { date: "07-02", value: 0 },
+];
+
+const citationRows: CitationRow[] = [
+  { domain: "reddit.com", value: "21.4%", color: "#FF4500" },
+  { domain: "youtube.com", value: "21.4%", color: "#FF0033" },
+  { domain: "creativeainews.com", value: "14.3%", color: "#111827" },
+  { domain: "businessinsider.com", value: "7.1%", color: "#1D4ED8" },
+  { domain: "cre8journal.com", value: "7.1%", color: "#22C55E" },
+];
+
+const citationCategories: CitationCategory[] = [
+  { label: "Corporate", name: "企业", value: 35, color: "#F97316" },
+  { label: "Editorial", name: "编辑内容", value: 26, color: "#3B82F6" },
+  { label: "UGC", name: "用户生成内容", value: 18, color: "#06B6D4" },
+  { label: "Other", name: "其他", value: 11, color: "#6B7280" },
+  { label: "Reference", name: "参考", value: 6, color: "#A855F7" },
+  { label: "Institutional", name: "机构", value: 2, color: "#65A30D" },
+  { label: "Competitor", name: "竞争对手", value: 1, color: "#EF4444" },
+];
+
+const popularCitationDomains: PopularCitationDomain[] = [
+  { rank: "1.", domain: "reddit.com", kind: "社交", share: "21.43%", tag: "+21.43%", color: "#FF4500" },
+  { rank: "1.", domain: "youtube.com", kind: "社交", share: "21.43%", tag: "+21.43%", color: "#FF0033" },
+  { rank: "3.", domain: "creativeainews.com", kind: "赢得媒体", share: "14.29%", tag: "+14.29%", color: "#111827" },
+  { rank: "4.", domain: "businessinsider.com", kind: "赢得媒体", share: "7.14%", tag: "+7.14%", color: "#1D4ED8" },
+  { rank: "4.", domain: "cre8journal.com", kind: "其他", share: "7.14%", tag: "+7.14%", color: "#22C55E" },
+  { rank: "4.", domain: "fast.io", kind: "其他", share: "7.14%", tag: "+7.14%", color: "#111827" },
+  { rank: "4.", domain: "toolchase.com", kind: "赢得媒体", share: "7.14%", tag: "+7.14%", color: "#14B8A6" },
+  { rank: "4.", domain: "toolradar.com", kind: "社交", share: "7.14%", tag: "+7.14%", color: "#60A5FA" },
+  { rank: "4.", domain: "zapier.com", kind: "其他", share: "7.14%", tag: "+7.14%", color: "#FF4F00" },
+];
+
+const popularCitationPages: PopularCitationPage[] = [
+  {
+    rank: "1.",
+    page: "creativeainews.com/articles/best-ai-image-generators-2026/",
+    kind: "赢得媒体",
+    mentioned: "未提及",
+    firstCitation: "Jun 30, 2026",
+    share: "14.29%",
+    tag: "+14.29%",
+    color: "#111827",
+  },
+  {
+    rank: "1.",
+    page: "youtube.com/watch?v=HSHGqG3vBIA",
+    kind: "社交",
+    mentioned: "未提及",
+    firstCitation: "Jun 30, 2026",
+    share: "14.29%",
+    tag: "+14.29%",
+    color: "#FF0033",
+  },
+  {
+    rank: "3.",
+    page: "cre8journal.com/news/magazine-best-ai-tools-for-designers-2026",
+    kind: "其他",
+    mentioned: "Not Checked",
+    firstCitation: "Jul 2, 2026",
+    share: "7.14%",
+    tag: "+7.14%",
+    color: "#22C55E",
+  },
+  {
+    rank: "3.",
+    page: "reddit.com/r/AIToolCompare/comments/1rplayt/best_ai_video_creators/",
+    kind: "社交",
+    mentioned: "未提及",
+    firstCitation: "Jul 2, 2026",
+    share: "7.14%",
+    tag: "+7.14%",
+    color: "#FF4500",
+  },
+  {
+    rank: "3.",
+    page: "reddit.com/r/AI_Agents/comments/1tadlie/tested_4_best_ai_video_generators_in_2026_for/",
+    kind: "社交",
+    mentioned: "未提及",
+    firstCitation: "Jun 30, 2026",
+    share: "7.14%",
+    tag: "+7.14%",
+    color: "#FF4500",
+  },
+];
+
+const chatRecords: ChatRecord[] = [
+  {
+    prompt: "中小企业做社交媒体营销需要多少视觉素材才够用？",
+    answer: "做社交媒体营销，中小企业最容易掉进的陷阱就是每天都在发想今天发什么，所以每天都在现做素材。结果就是消耗大量时间，排版还乱七八糟。",
+    submitter: "Gemini",
+    sources: ["BI"],
+    features: "-",
+    status: "-",
+    location: "全球",
+    created: "今天",
+    accent: "#4F7CFF",
+  },
+  {
+    prompt: "跨平台设计工具哪个最适合零基础用户？",
+    answer: "对于零基础用户，上手最快的跨平台设计工具根据您的具体设计需求：平面与网页设计、海报、社交媒体图、PPT，首推 Canva。",
+    submitter: "Google",
+    sources: ["YT", "RD", "+3"],
+    features: "网页",
+    status: "-",
+    location: "全球",
+    created: "今天",
+    accent: "#4285F4",
+  },
+  {
+    prompt: "自由设计师如何利用AI图像生成提高工作效率？",
+    answer: "自由设计师可以利用AI图像生成技术，在项目创意、灵感发散、素材制作和样机展示等核心阶段实现10倍以上的效率提升。",
+    submitter: "Google",
+    sources: ["LE", "G", "+1"],
+    features: "网页",
+    status: "-",
+    location: "全球",
+    created: "今天",
+    accent: "#4285F4",
+  },
+  {
+    prompt: "数字内容创作中的自动化工具值得投入学习吗？",
+    answer: "答案是：非常值得，甚至可以说是同等数字内容创作者的必修课。无论你是在运营社交媒体账号、做视频剪辑、写作还是视觉设计。",
+    submitter: "Gemini",
+    sources: [],
+    features: "-",
+    status: "-",
+    location: "全球",
+    created: "今天",
+    accent: "#4F7CFF",
+  },
+  {
+    prompt: "跨平台设计工具哪个最适合零基础用户？",
+    answer: "对于零基础用户来说，选择跨平台设计工具的核心是：操作洞察、模板丰富、拖拽式操作，且不需要安装庞大的本地软件。",
+    submitter: "Gemini",
+    sources: ["BI"],
+    features: "-",
+    status: "-",
+    location: "全球",
+    created: "今天",
+    accent: "#4F7CFF",
+  },
+  {
+    prompt: "设计师如何持续获得创意思路避免灵感枯竭？",
+    answer: "以下内容给设计师的实用路径，帮助持续获得创意思路，避免灵感枯竭。打造日常灵感仓，养成收集习惯。",
+    submitter: "Perplexity",
+    sources: ["S", "GM", "+2"],
+    features: "网页",
+    status: "-",
+    location: "全球",
+    created: "今天",
+    accent: "#22B8CF",
+  },
+  {
+    prompt: "AI创意灵感推荐能帮公司节省多少策划时间？",
+    answer: "AI创意灵感建议通常短暂公司节省40%到70%的策划时间。通过处理自动化市场调研、文案生成和视觉风暴等重复性工作。",
+    submitter: "Google",
+    sources: ["WP", "G", "+2"],
+    features: "网页",
+    status: "-",
+    location: "全球",
+    created: "今天",
+    accent: "#4285F4",
+  },
+  {
+    prompt: "AI创意灵感推荐能帮公司节省多少策划时间？",
+    answer: "在快节奏的十大生态中，AI创意灵感推荐平均能帮助公司节省50%到70%的核心策划时间。",
+    submitter: "Gemini",
+    sources: [],
+    features: "-",
+    status: "-",
+    location: "全球",
+    created: "今天",
+    accent: "#4F7CFF",
+  },
+  {
+    prompt: "使用现成设计模板会不会让品牌视觉千篇一律？",
+    answer: "会，而且关键不是不能用模板，而在怎么用。真正存在结果的决定不是模板本身，而是你直接套模板，还是建立自己的品牌规范。",
+    submitter: "ChatGPT",
+    sources: ["YT", "+7"],
+    features: "网页",
+    status: "-",
+    location: "全球",
+    created: "今天",
+    accent: "#111827",
+  },
+  {
+    prompt: "AI图像生成技术真的能替代专业设计师吗？",
+    answer: "简短回答：不能完全替代，但已经能够替代一部分设计工作，并且正在重塑设计师的工作方式。",
+    submitter: "ChatGPT",
+    sources: ["CB", "RD", "+10"],
+    features: "网页",
+    status: "-",
+    location: "全球",
+    created: "今天",
+    accent: "#111827",
+  },
+];
+
+const brandColors: Record<string, string> = {
+  Midjourney: "#22C55E",
+  Adobe: "#EF4444",
+  Canva: "#3366FF",
+  ElevenLabs: "#F97316",
+  Ideogram: "#EC4899",
+  OpenAI: "#111827",
+  Autodraw: "#8B5CF6",
+  Claude: "#F59E0B",
+  Jasper: "#14B8A6",
+  Other: "#8A8F8D",
+};
+
+function filterBrandRows(rows: BrandMetric[], selectedBrands: string[]) {
+  if (selectedBrands.length === 0) return rows;
+  return rows.filter((row) => selectedBrands.includes(row.name));
+}
+
+function filterShareItems(items: ShareOfVoiceItem[], selectedBrands: string[]) {
+  if (selectedBrands.length === 0) return items;
+  return items.filter((item) => selectedBrands.includes(item.name));
+}
+
+function filterTrendByDate<T>(items: T[], dateRange: GlobalFilterState["dateRange"]) {
+  const rangeSize = {
+    "7d": 7,
+    "30d": 30,
+    "90d": 90,
+  }[dateRange];
+
+  return items.slice(-rangeSize);
+}
+
+function brandInitial(name: string) {
+  return name.slice(0, 1).toUpperCase();
+}
+
+function SectionIntro({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
   return (
-    <Card className="flex flex-col justify-between p-5 h-full border border-border/60 shadow-none bg-card">
-      <div className="flex justify-between items-center mb-3">
-        <span className="text-sm text-muted-foreground font-medium">{label}</span>
-        <span className="text-muted-foreground/60">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.5" />
-            <path d="M7 6.5V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <circle cx="7" cy="4.5" r="0.75" fill="currentColor" />
-          </svg>
-        </span>
+    <div className="flex items-end justify-between gap-4">
+      <div>
+        <h2 className="m-0 text-[15px] font-semibold tracking-tight text-foreground">{title}</h2>
+        <p className="m-0 mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
       </div>
-      <div className="flex items-baseline gap-2 mb-1">
-        <span className="text-3xl font-bold tracking-tight">{value}</span>
-        {delta ? <span className={`text-sm font-medium ${deltaColor}`}>{delta}</span> : null}
+      <Button
+        className="h-7 gap-1.5 rounded-md px-2.5 text-[11px]"
+        size="sm"
+        type="button"
+        variant="secondary"
+      >
+        配置
+        <ChevronDown size={12} />
+      </Button>
+    </div>
+  );
+}
+
+function ChartPanel({ title, value, children, legend }: ChartPanelProps) {
+  return (
+    <Card className="min-h-[260px] rounded-lg border border-border/70 bg-card p-0 shadow-none">
+      <div className="flex items-start justify-between gap-3 px-5 pt-4">
+        <div>
+          <p className="m-0 text-xs font-medium text-muted-foreground">{title}</p>
+          <p className="m-0 mt-1 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+        </div>
+        <button
+          aria-label="下载图表"
+          className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          type="button"
+        >
+          <Download size={13} />
+        </button>
       </div>
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground">{note}</span>
-        {badge ? (
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-              badgeType === "success" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {badge}
+      <div className="px-4 pb-3 pt-2">{children}</div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/50 px-5 py-3">
+        {legend.map((item) => (
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground" key={item.label}>
+            <span className="h-2 w-2 rounded-[2px]" style={{ background: item.color }} />
+            {item.label}
           </span>
-        ) : null}
+        ))}
       </div>
     </Card>
   );
 }
 
-function TrendChart() {
-  const maxVal = Math.max(...visibilityTrend.map((d) => d.value));
-  const minVal = Math.min(...visibilityTrend.map((d) => d.value));
-  const w = 520;
-  const h = 200;
-  const pad = 20;
-
-  const points = visibilityTrend.map((d, i) => {
-    const x = pad + (i / (visibilityTrend.length - 1)) * (w - pad * 2);
-    const y = h - pad - ((d.value - minVal) / (maxVal - minVal)) * (h - pad * 2);
-    return { x, y, ...d };
+function TrendChart({
+  data,
+  max,
+  min,
+  unit = "%",
+  invert = false,
+}: {
+  data: TrendPoint[];
+  max: number;
+  min: number;
+  unit?: string;
+  invert?: boolean;
+}) {
+  const width = 720;
+  const height = 250;
+  const padX = 40;
+  const padY = 24;
+  const range = max - min || 1;
+  const points = data.map((point, index) => {
+    const x = padX + (index / (data.length - 1)) * (width - padX * 2);
+    const normal = (point.value - min) / range;
+    const y = padY + (invert ? normal : 1 - normal) * (height - padY * 2);
+    return { ...point, x, y };
   });
-
-  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
-  const areaPath = `${linePath} L${points[points.length - 1].x},${h - pad} L${points[0].x},${h - pad} Z`;
+  const path = points.map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`).join(" ");
+  const yTicks = [max, (max + min) / 2, min];
 
   return (
-    <div className="relative w-full">
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3366FF" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="#3366FF" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {[0, 0.25, 0.5, 0.75, 1].map((ratio) => (
-          <line
-            key={ratio}
-            x1={pad}
-            x2={w - pad}
-            y1={pad + ratio * (h - pad * 2)}
-            y2={pad + ratio * (h - pad * 2)}
-            stroke="#E5E7EB"
-            strokeWidth="0.5"
-            strokeDasharray="4 4"
-          />
-        ))}
-        <path d={areaPath} fill="url(#trendGradient)" />
-        <path d={linePath} fill="none" stroke="#3366FF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        {points.map((p) => (
-          <g key={p.date}>
-            <circle cx={p.x} cy={p.y} r="4" fill="#3366FF" />
-            <circle cx={p.x} cy={p.y} r="7" fill="#3366FF" fillOpacity="0.15" />
-            <text x={p.x} y={p.y - 14} textAnchor="middle" className="text-[10px] font-semibold" fill="#111827">
-              {p.value}%
-            </text>
-          </g>
-        ))}
+    <div className="w-full overflow-hidden">
+      <svg aria-label="趋势折线图" className="h-[168px] w-full" preserveAspectRatio="none" viewBox={`0 0 ${width} ${height}`}>
+        {yTicks.map((tick, index) => {
+          const y = padY + index * ((height - padY * 2) / (yTicks.length - 1));
+          return (
+            <g key={tick}>
+              <line
+                stroke="hsl(var(--border))"
+                strokeDasharray="5 6"
+                strokeOpacity="0.8"
+                strokeWidth="1"
+                x1={padX}
+                x2={width - padX}
+                y1={y}
+                y2={y}
+              />
+              <text fill="hsl(var(--muted-foreground))" fontSize="10" x="0" y={y + 3}>
+                {Number.isInteger(tick) ? tick : tick.toFixed(1)}
+                {unit}
+              </text>
+            </g>
+          );
+        })}
+        <path d={path} fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.25" />
       </svg>
-      <div className="flex justify-between px-5 mt-2 text-xs text-muted-foreground">
-        {visibilityTrend.map((d) => (
-          <span key={d.date}>{d.date}</span>
-        ))}
+      <div className="flex justify-between px-8 text-[10px] text-muted-foreground">
+        <span>{data[0]?.date}</span>
+        <span>{data[data.length - 1]?.date}</span>
       </div>
     </div>
   );
 }
 
-function DonutChart() {
-  const size = 160;
-  const stroke = 28;
-  const radius = (size - stroke) / 2;
+function SharePie({ data }: { data: ShareOfVoiceItem[] }) {
+  const size = 178;
+  const radius = 58;
+  const stroke = 12;
   const circumference = 2 * Math.PI * radius;
-  const total = shareOfVoice.reduce((sum, item) => sum + item.value, 0);
-
+  const total = data.reduce((sum, item) => sum + item.value, 0);
   let offset = 0;
-  const segments = shareOfVoice.map((item) => {
-    const fraction = item.value / total;
-    const dash = fraction * circumference;
+
+  const segments = data.map((item) => {
+    const length = (item.value / total) * circumference;
     const segment = {
       ...item,
-      dashArray: `${dash} ${circumference - dash}`,
+      dashArray: `${length} ${circumference - length}`,
       dashOffset: -offset,
     };
-    offset += dash;
+    offset += length;
     return segment;
   });
 
   return (
-    <div className="flex items-center gap-8">
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="-rotate-90">
-          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#F3F4F6" strokeWidth={stroke} />
-          {segments.map((seg) => (
-            <circle
-              key={seg.name}
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              fill="none"
-              stroke={seg.color}
-              strokeWidth={stroke}
-              strokeDasharray={seg.dashArray}
-              strokeDashoffset={seg.dashOffset}
-              strokeLinecap="round"
-            />
-          ))}
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-bold">52%</span>
-          <span className="text-xs text-muted-foreground">CreativeHit</span>
-        </div>
+    <div className="flex h-[168px] items-center justify-center">
+      <svg aria-label="声量份额饼图" className="-rotate-90" height={size} viewBox={`0 0 ${size} ${size}`} width={size}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          fill="none"
+          r={radius}
+          stroke="hsl(var(--muted))"
+          strokeWidth={stroke}
+        />
+        {segments.map((segment) => (
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            fill="none"
+            key={segment.name}
+            r={radius}
+            stroke={segment.color}
+            strokeDasharray={segment.dashArray}
+            strokeDashoffset={segment.dashOffset}
+            strokeLinecap="round"
+            strokeWidth={stroke}
+          />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function RankingTable({ title, value, valueLabel, rows, mode, selectedBrand = "Midjourney", onExpand }: RankingTableProps) {
+  function getValue(row: BrandMetric) {
+    if (mode === "rank") return row.position.toString();
+    if (mode === "share") return `${row.sov}%`;
+    return `${row.score}%`;
+  }
+
+  return (
+    <Card className="min-h-[260px] rounded-lg border border-border/70 bg-card p-0 shadow-none">
+      <div className="px-5 pt-4">
+        <p className="m-0 text-xs font-medium text-muted-foreground">{title}</p>
+        <p className="m-0 mt-1 text-2xl font-semibold tracking-tight">{value}</p>
       </div>
-      <div className="grid gap-3 text-sm">
-        {shareOfVoice.map((item) => (
-          <div key={item.name} className="flex items-center gap-2.5">
-            <span className="w-2.5 h-2.5 rounded-sm" style={{ background: item.color }} />
-            <span className={`font-medium ${item.name === "CreativeHit" ? "text-foreground" : "text-muted-foreground"}`}>
-              {item.name}
+      <div className="mt-4 grid grid-cols-[36px_minmax(0,1fr)_92px] border-b border-border/60 px-5 pb-2 text-[11px] font-medium text-muted-foreground">
+        <span>序号</span>
+        <span>品牌</span>
+        <span className="text-right">{valueLabel}</span>
+      </div>
+      <div className="px-5">
+        {rows.map((row, index) => {
+          const isSelected = row.name === selectedBrand;
+          return (
+            <div
+              className="grid grid-cols-[36px_minmax(0,1fr)_92px] items-center border-b border-border/50 py-2.5 text-xs last:border-b-0"
+              key={row.name}
+            >
+              <span className="text-muted-foreground">{index + 1}.</span>
+              <span className="flex min-w-0 items-center gap-2">
+                <span
+                  className="grid h-4 w-4 shrink-0 place-items-center rounded-[4px] text-[9px] font-semibold text-white"
+                  style={{ background: brandColors[row.name] ?? "hsl(var(--muted-foreground))" }}
+                >
+                  {brandInitial(row.name)}
+                </span>
+                <span className="truncate font-medium">{row.name}</span>
+                {isSelected ? (
+                  <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                    已选
+                  </span>
+                ) : null}
+              </span>
+              <span className="text-right font-semibold tabular-nums">{getValue(row)}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex justify-end px-5 py-3">
+        <Button className="h-7 gap-1 rounded-md px-2.5 text-[11px]" onClick={onExpand} size="sm" type="button" variant="ghost">
+          展开
+          <MoreHorizontal size={13} />
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function AnalysisBlock({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="grid gap-3">
+      <SectionIntro description={description} title={title} />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.06fr)_minmax(360px,0.94fr)]">{children}</div>
+    </section>
+  );
+}
+
+function TabNavigation({
+  activeTab,
+  onChange,
+}: {
+  activeTab: OverviewTab;
+  onChange: (tab: OverviewTab) => void;
+}) {
+  return (
+    <div className="border-b border-border/70">
+      <div className="scrollbar-none flex items-center gap-6 overflow-x-auto overflow-y-hidden">
+        {overviewTabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              aria-current={isActive ? "page" : undefined}
+              className={cn(
+                "relative h-10 shrink-0 px-0 text-sm font-medium transition-colors",
+                isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+              key={tab.id}
+              onClick={() => onChange(tab.id)}
+              type="button"
+            >
+              {tab.label}
+              <span
+                className={cn(
+                  "absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary transition-opacity",
+                  isActive ? "opacity-100" : "opacity-0"
+                )}
+              />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function VisibilityContent({ filters, navigate }: { filters: GlobalFilterState; navigate?: (page: NavId) => void }) {
+  const filteredVisibilityRows = filterBrandRows(visibilityRows, filters.brands);
+  const filteredShareRows = filterBrandRows(shareRows, filters.brands);
+  const filteredRankingRows = filterBrandRows(rankingRows, filters.brands);
+  const filteredShareOfVoice = filterShareItems(shareOfVoice, filters.brands);
+  const selectedBrand = filters.brands[0] ?? "Midjourney";
+  const trendData = filterTrendByDate(visibilityTrend, filters.dateRange);
+  const averageTrendData = filterTrendByDate(averagePositionTrend, filters.dateRange);
+  const visibilityLegend = [
+    { label: "当前周期", color: "hsl(var(--primary))" },
+    { label: "竞品对比", color: "hsl(var(--muted-foreground))" },
+  ];
+  const shareLegend = filteredShareOfVoice.map((item) => ({ label: item.name === "Other" ? "其他" : item.name, color: item.color }));
+
+  return (
+    <>
+      <AnalysisBlock
+        description="品牌在人工智能生成回答中被提及的频率。"
+        title="可见度得分"
+      >
+        <ChartPanel legend={visibilityLegend} title="可见性得分" value="100%">
+          <TrendChart data={trendData} max={100} min={0} />
+        </ChartPanel>
+        <RankingTable
+          mode="score"
+          onExpand={() => navigate?.("insights")}
+          rows={filteredVisibilityRows}
+          selectedBrand={selectedBrand}
+          title="可见性得分排名"
+          value="#1"
+          valueLabel="可见性得分"
+        />
+      </AnalysisBlock>
+
+      <AnalysisBlock
+        description="品牌在人工智能生成回答中的提及量相对竞品的占比。"
+        title="声量份额"
+      >
+        <ChartPanel legend={shareLegend} title="声量份额" value="7.7%">
+          <SharePie data={filteredShareOfVoice} />
+        </ChartPanel>
+        <RankingTable
+          mode="share"
+          onExpand={() => navigate?.("insights")}
+          rows={filteredShareRows}
+          selectedBrand={selectedBrand}
+          title="声量份额排名"
+          value="#1"
+          valueLabel="声量份额"
+        />
+      </AnalysisBlock>
+
+      <AnalysisBlock
+        description="品牌在人工智能生成回答中的平均出现排名。"
+        title="平均排名"
+      >
+        <ChartPanel legend={visibilityLegend} title="平均排名" value="3.5">
+          <TrendChart data={averageTrendData} max={4.0} min={3.0} unit="" />
+        </ChartPanel>
+        <RankingTable
+          mode="rank"
+          onExpand={() => navigate?.("insights")}
+          rows={filteredRankingRows}
+          selectedBrand={selectedBrand}
+          title="平均排名榜"
+          value="#5"
+          valueLabel="平均排名"
+        />
+      </AnalysisBlock>
+    </>
+  );
+}
+
+function CitationTable() {
+  return (
+    <Card className="min-h-[360px] rounded-lg border border-border/70 bg-card p-0 shadow-none">
+      <div className="px-5 pt-5">
+        <p className="m-0 text-xs font-medium text-muted-foreground">引用排名</p>
+        <p className="m-0 mt-2 text-2xl font-semibold tracking-tight">-</p>
+      </div>
+      <div className="mt-6 grid grid-cols-[44px_minmax(0,1fr)_92px] border-b border-border/60 px-5 pb-2 text-[11px] font-medium text-muted-foreground">
+        <span>序号</span>
+        <span>域名</span>
+        <span className="text-right">占比</span>
+      </div>
+      <div className="px-5">
+        {citationRows.map((row, index) => (
+          <div
+            className="grid grid-cols-[44px_minmax(0,1fr)_92px] items-center border-b border-border/50 py-3 text-xs last:border-b-0"
+            key={row.domain}
+          >
+            <span className="text-muted-foreground">{index + 1}.</span>
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full text-[9px] font-semibold text-white" style={{ background: row.color }}>
+                {row.domain.slice(0, 1).toUpperCase()}
+              </span>
+              <span className="truncate font-medium">{row.domain}</span>
             </span>
-            <span className="text-muted-foreground">{item.value}%</span>
+            <span className="text-right font-semibold tabular-nums">{row.value}</span>
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function BrandRankTable() {
-  return (
-    <div className="w-full">
-      <div className="grid grid-cols-[28px_minmax(0,1fr)_auto_80px] gap-3 items-center py-2.5 text-xs font-medium text-muted-foreground border-b border-border/50">
-        <span>#</span>
-        <span>品牌</span>
-        <span className="text-right">可见性</span>
-        <span className="text-right">排名</span>
+      <div className="flex justify-end px-5 py-4">
+        <Button className="h-7 rounded-md px-2.5 text-[11px]" size="sm" type="button" variant="ghost">
+          展开
+        </Button>
       </div>
-      {brands.map((brand, index) => (
-        <div
-          key={brand.name}
-          className="grid grid-cols-[28px_minmax(0,1fr)_auto_80px] gap-3 items-center py-2.5 border-b border-border/30 text-sm last:border-0"
-        >
-          <span className="text-muted-foreground font-medium">{index + 1}</span>
-          <span className="flex items-center gap-2.5 font-medium">
-            <span
-              className={`w-6 h-6 grid place-items-center rounded-full text-[10px] font-bold ${
-                brand.name === "CreativeHit" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {brand.name.slice(0, 1)}
-            </span>
-            {brand.name}
-          </span>
-          <span className="text-right">
-            <div className="flex items-center gap-2 justify-end">
-              <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${brand.score}%`,
-                    background: brand.name === "CreativeHit" ? "#3366FF" : "#D1D5DB",
-                  }}
-                />
-              </div>
-              <span className="font-semibold tabular-nums w-8 text-right">{brand.score}%</span>
-            </div>
-          </span>
-          <span className="text-right font-semibold tabular-nums">#{brand.position}</span>
-        </div>
-      ))}
-    </div>
+    </Card>
   );
 }
 
-function SourceCoverageBars() {
-  const maxVal = Math.max(...sourceCoverage.map((d) => d.value));
+function CitationCategoryCard() {
   return (
-    <div className="grid gap-4">
-      {sourceCoverage.map((source) => (
-        <div key={source.name} className="grid grid-cols-[80px_minmax(0,1fr)_32px] gap-3 items-center">
-          <span className="text-xs text-muted-foreground font-medium">{source.name}</span>
-          <div className="h-2 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
-              style={{ width: `${(source.value / maxVal) * 100}%` }}
-            />
+    <section className="grid gap-3">
+      <h2 className="m-0 text-[15px] font-semibold tracking-tight text-foreground">引用分类</h2>
+      <Card className="rounded-lg border border-border/70 bg-card p-0 shadow-none">
+        <div className="flex flex-col gap-2 border-b border-border/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <h3 className="m-0 text-sm font-semibold">域名类型</h3>
+            <span className="text-sm font-medium text-muted-foreground">Domain types</span>
           </div>
-          <span className="text-xs font-semibold tabular-nums text-right">{source.value}%</span>
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <span>总检索次数：1.1 千次</span>
+            <span className="grid h-4 w-4 place-items-center rounded-full border border-border text-[10px] text-muted-foreground">
+              i
+            </span>
+          </div>
         </div>
-      ))}
-    </div>
+        <div className="grid gap-3 px-5 py-5">
+          {citationCategories.map((category) => (
+            <div className="grid grid-cols-[minmax(0,1fr)_48px] items-center gap-4" key={category.label}>
+              <div className="relative h-11 overflow-hidden rounded-lg bg-muted/60">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-lg bg-muted"
+                  style={{ width: `${Math.max(category.value, 3)}%` }}
+                />
+                <div className="relative flex h-full min-w-0 items-center gap-3 px-4">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: category.color }} />
+                  <span className="min-w-0 truncate text-sm font-semibold">{category.label}</span>
+                  <span className="shrink-0 text-sm font-medium text-foreground/80">{category.name}</span>
+                </div>
+              </div>
+              <span className="text-right text-sm font-semibold tabular-nums text-muted-foreground">
+                {category.value}%
+              </span>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </section>
   );
 }
 
-function ActionCard({ icon, title, description, priority }: { icon: string; title: string; description: string; priority: "高优先" | "中优先" | "低优先" }) {
-  const priorityColor =
-    priority === "高优先"
-      ? "bg-destructive/10 text-destructive"
-      : priority === "中优先"
-        ? "bg-warning/10 text-warning"
-        : "bg-muted text-muted-foreground";
-
+function CitationSearch({ placeholder }: { placeholder: string }) {
   return (
-    <div className="flex items-start gap-3 p-3 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors cursor-pointer">
-      <span className="text-lg shrink-0">{icon}</span>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5">
-          <span className="text-sm font-medium">{title}</span>
-          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${priorityColor}`}>{priority}</span>
-        </div>
-        <p className="text-xs text-muted-foreground m-0">{description}</p>
-      </div>
-      <ChevronRight size={16} className="text-muted-foreground shrink-0 mt-1" />
-    </div>
+    <label className="relative block w-full sm:w-44">
+      <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={13} />
+      <input
+        className="h-8 w-full rounded-md border border-border bg-card pl-8 pr-3 text-xs outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+        placeholder={placeholder}
+        type="search"
+      />
+    </label>
   );
 }
 
-export function OverviewPage({ navigate, notify }: PageProps) {
-  return (
-    <div className="grid gap-6">
-      <section className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight m-0">
-            👋 早上好！<span className="text-primary">CreativeHit</span>
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1 m-0">这是您今日的 AI 可见性概览报告</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted/50 transition-colors" type="button">
-            <Calendar size={16} className="text-muted-foreground" />
-            最近 7 天
-          </button>
-          <button className="w-9 h-9 grid place-items-center rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors relative" type="button">
-            <Bell size={16} className="text-muted-foreground" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive" />
-          </button>
-        </div>
-      </section>
+function CategoryBadge({ kind }: { kind: CitationKind }) {
+  const tone = {
+    社交: "bg-purple-100 text-purple-700",
+    赢得媒体: "bg-blue-100 text-blue-700",
+    其他: "bg-muted text-muted-foreground",
+  }[kind];
 
-      <section className="flex items-center justify-between p-6 rounded-2xl bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/10">
+  return <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", tone)}>{kind}</span>;
+}
+
+function DomainIcon({ label, color }: { label: string; color: string }) {
+  return (
+    <span className="grid h-4 w-4 shrink-0 place-items-center rounded-[4px] text-[9px] font-semibold text-white" style={{ background: color }}>
+      {label.slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
+
+function PopularCitationDomains() {
+  return (
+    <section className="grid gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h3 className="text-lg font-semibold mb-1 tracking-tight m-0">你的品牌已出现在 67% 的监测 AI 回答中</h3>
-          <p className="text-sm text-muted-foreground m-0 max-w-2xl leading-relaxed">
-            当前在核心 Topic 中保持领先，但引用来源仍过度集中于 UGC。下一步建议优先补齐媒体站、企业站和可复用 URL 级来源。
+          <h2 className="m-0 text-[15px] font-semibold tracking-tight text-foreground">热门引用域名</h2>
+          <p className="m-0 mt-1 text-xs leading-5 text-muted-foreground">
+            了解哪些网站在人工智能生成回答中被引用的频率最高
           </p>
         </div>
-      </section>
-
-      <section className="grid grid-cols-5 gap-4">
-        {overviewMetrics.map((metric) => (
-          <MetricCard key={metric.label} {...metric} />
-        ))}
-      </section>
-
-      <section className="relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
-        <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
-        <div className="absolute -right-4 -bottom-4 w-32 h-32 rounded-full bg-white/5 blur-xl" />
-        <div className="relative flex items-start gap-4">
-          <div className="w-10 h-10 rounded-xl bg-white/20 grid place-items-center shrink-0">
-            <Sparkles size={20} />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-white/20">AI 洞察</span>
+        <CitationSearch placeholder="搜索域名" />
+      </div>
+      <Card className="rounded-lg border border-border/70 bg-card p-0 shadow-none">
+        <div className="scrollbar-none overflow-x-auto">
+          <div className="min-w-[920px]">
+            <div className="grid grid-cols-[56px_minmax(280px,1fr)_120px_96px_120px] border-b border-border/60 px-5 py-3 text-[11px] font-medium text-muted-foreground">
+              <span>排名</span>
+              <span>域名</span>
+              <span>类别</span>
+              <span className="text-right">占比</span>
+              <span className="text-right">引用标签</span>
             </div>
-            <h3 className="text-base font-semibold mb-1 m-0">您的品牌在中文创意工具领域已领先竞品 3 倍以上</h3>
-            <p className="text-sm text-primary-foreground/80 m-0 max-w-2xl leading-relaxed">
-              建议进一步优化 Perplexity 和 Bing Copilot 的内容覆盖，这两处仍有较大增长空间。同时扩展 Reddit 和技术博客来源以提升引用率。
-            </p>
-          </div>
-          <button
-            className="shrink-0 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-sm font-medium transition-colors"
-            type="button"
-            onClick={() => notify?.("AI 洞察已保存到行动建议。")}
-          >
-            查看完整分析
-          </button>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-[minmax(0,1.4fr)_minmax(300px,0.6fr)] gap-6">
-        <Card className="p-6 min-w-0 border border-border/60 shadow-none bg-card">
-          <div className="flex justify-between items-start gap-3 mb-6">
-            <div>
-              <h3 className="text-base font-semibold mb-1 m-0">可见性趋势</h3>
-              <p className="text-xs text-muted-foreground m-0">过去 7 天品牌在 AI 回答中的可见性变化</p>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <TrendingUp size={16} className="text-success" />
-              <span className="font-semibold text-success">+35%</span>
-              <span className="text-muted-foreground text-xs">较上周</span>
-            </div>
-          </div>
-          <TrendChart />
-        </Card>
-
-        <Card className="p-6 min-w-0 border border-border/60 shadow-none bg-card">
-          <div className="flex justify-between items-start gap-3 mb-6">
-            <div>
-              <h3 className="text-base font-semibold mb-1 m-0">声量份额</h3>
-              <p className="text-xs text-muted-foreground m-0">按品牌拆分当前提及占比</p>
-            </div>
-          </div>
-          <div className="flex items-center justify-center">
-            <DonutChart />
-          </div>
-        </Card>
-      </section>
-
-      <section className="grid grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)_minmax(280px,0.8fr)] gap-6">
-        <Card className="p-6 min-w-0 border border-border/60 shadow-none bg-card">
-          <div className="flex justify-between items-start gap-3 mb-4">
-            <div>
-              <h3 className="text-base font-semibold mb-1 m-0">品牌可见性排名</h3>
-              <p className="text-xs text-muted-foreground m-0">各品牌在 AI 回答中的可见性得分</p>
-            </div>
-            <Button variant="secondary" size="sm" onClick={() => navigate?.("insights")} type="button">
-              查看全部
-            </Button>
-          </div>
-          <BrandRankTable />
-        </Card>
-
-        <Card className="p-6 min-w-0 border border-border/60 shadow-none bg-card">
-          <div className="flex justify-between items-start gap-3 mb-4">
-            <div>
-              <h3 className="text-base font-semibold mb-1 m-0">来源覆盖分布</h3>
-              <p className="text-xs text-muted-foreground m-0">各 AI 模型对你品牌的引用率</p>
-            </div>
-          </div>
-          <SourceCoverageBars />
-        </Card>
-
-        <Card className="p-6 min-w-0 border border-border/60 shadow-none bg-card">
-          <div className="flex justify-between items-start gap-3 mb-4">
-            <div>
-              <h3 className="text-base font-semibold mb-1 m-0">行动建议</h3>
-              <p className="text-xs text-muted-foreground m-0">基于当前数据生成的优化建议</p>
-            </div>
-            <Button variant="secondary" size="sm" onClick={() => navigate?.("insights")} type="button">
-              查看全部
-            </Button>
-          </div>
-          <div className="grid gap-2">
-            {actionRecommendations.map((rec) => (
-              <ActionCard key={rec.title} {...rec} />
+            {popularCitationDomains.map((row, index) => (
+              <div
+                className="grid grid-cols-[56px_minmax(280px,1fr)_120px_96px_120px] items-center border-b border-border/50 px-5 py-3 text-xs last:border-b-0"
+                key={`${row.domain}-${index}`}
+              >
+                <span className="text-muted-foreground">{row.rank}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <DomainIcon color={row.color} label={row.domain} />
+                  <span className="truncate font-medium">{row.domain}</span>
+                </span>
+                <span>
+                  <CategoryBadge kind={row.kind} />
+                </span>
+                <span className="text-right font-medium tabular-nums">{row.share}</span>
+                <span className="text-right font-semibold tabular-nums text-success">{row.tag}</span>
+              </div>
             ))}
           </div>
+        </div>
+        <div className="border-t border-border/50 px-5 py-3 text-right text-xs text-muted-foreground">显示 1-9 / 9 项</div>
+      </Card>
+    </section>
+  );
+}
+
+function PopularCitationPages() {
+  return (
+    <section className="grid gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="m-0 text-[15px] font-semibold tracking-tight text-foreground">热门引用页面</h2>
+          <p className="m-0 mt-1 text-xs leading-5 text-muted-foreground">
+            探索人工智能回答中被引用频率最高的网页
+          </p>
+        </div>
+        <CitationSearch placeholder="搜索页面" />
+      </div>
+      <Card className="rounded-lg border border-border/70 bg-card p-0 shadow-none">
+        <div className="scrollbar-none overflow-x-auto">
+          <div className="min-w-[1120px]">
+            <div className="grid grid-cols-[56px_minmax(360px,1fr)_120px_104px_128px_96px_120px] border-b border-border/60 px-5 py-3 text-[11px] font-medium text-muted-foreground">
+              <span>排名</span>
+              <span>页面</span>
+              <span>类别</span>
+              <span>页面中提及</span>
+              <span>首次被引用</span>
+              <span className="text-right">占比</span>
+              <span className="text-right">引用标签</span>
+            </div>
+            {popularCitationPages.map((row, index) => (
+              <div
+                className="grid grid-cols-[56px_minmax(360px,1fr)_120px_104px_128px_96px_120px] items-center border-b border-border/50 px-5 py-3 text-xs last:border-b-0"
+                key={`${row.page}-${index}`}
+              >
+                <span className="text-muted-foreground">{row.rank}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <DomainIcon color={row.color} label={row.page} />
+                  <span className="truncate font-medium">{row.page}</span>
+                </span>
+                <span>
+                  <CategoryBadge kind={row.kind} />
+                </span>
+                <span className={cn("font-medium", row.mentioned === "Not Checked" ? "text-muted-foreground" : "text-destructive")}>
+                  {row.mentioned}
+                </span>
+                <span>{row.firstCitation}</span>
+                <span className="text-right font-medium tabular-nums">{row.share}</span>
+                <span className="text-right font-semibold tabular-nums text-success">{row.tag}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+    </section>
+  );
+}
+
+function CitationContent() {
+  const citationLegend = [
+    { label: "当前周期", color: "hsl(var(--primary))" },
+    { label: "比较网站", color: "hsl(var(--muted-foreground))" },
+  ];
+
+  return (
+    <>
+      <section className="grid gap-3">
+        <SectionIntro description="creativehit.ai 被人工智能生成回答引用的频率。" title="引用占比" />
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.06fr)_minmax(360px,0.94fr)]">
+          <ChartPanel legend={citationLegend} title="引用占比" value="0%">
+            <TrendChart data={citationTrend} max={1} min={0} />
+          </ChartPanel>
+          <CitationTable />
+        </div>
+      </section>
+      <CitationCategoryCard />
+      <PopularCitationDomains />
+      <PopularCitationPages />
+    </>
+  );
+}
+
+function ChatFilterButton({ label }: { label: string }) {
+  return (
+    <Button className="h-8 gap-1.5 rounded-md px-3 text-xs" size="sm" type="button" variant="secondary">
+      {label}
+      <ChevronDown size={12} />
+    </Button>
+  );
+}
+
+function SourcePills({ sources }: { sources: string[] }) {
+  if (sources.length === 0) {
+    return <span className="text-muted-foreground">-</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      {sources.map((source, index) => (
+        <span
+          className={cn(
+            "grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[10px] font-semibold",
+            source.startsWith("+") ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"
+          )}
+          key={`${source}-${index}`}
+        >
+          {source}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ChatRecordDetailDrawer({ chat, onClose }: { chat: ChatRecord; onClose: () => void }) {
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      aria-label="全部对话内容详情"
+      aria-modal="true"
+      className="fixed inset-0 z-50 animate-chat-drawer-overlay"
+      onClick={onClose}
+      role="dialog"
+    >
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+      <aside
+        className="absolute right-0 top-0 flex h-full w-full max-w-[520px] animate-chat-drawer-content flex-col border-l border-border bg-card shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="flex items-start justify-between gap-4 border-b border-border bg-muted/20 px-6 py-5">
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                <Bot size={12} />
+                {chat.submitter}
+              </span>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{chat.location}</span>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{chat.created}</span>
+            </div>
+            <h2 className="m-0 text-lg font-semibold leading-snug">全部对话内容详情</h2>
+          </div>
+          <button
+            aria-label="关闭"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            onClick={onClose}
+            type="button"
+          >
+            <X size={18} />
+          </button>
+        </header>
+
+        <section className="flex-1 overflow-y-auto px-6 py-5">
+          <div className="mb-6">
+            <div className="mb-3 flex items-center gap-2">
+              <MessageSquare size={14} className="text-muted-foreground" />
+              <h3 className="m-0 text-xs font-semibold text-muted-foreground">聊天提问</h3>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card p-4 text-sm font-medium leading-7">
+              {chat.prompt}
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <div className="mb-3 flex items-center gap-2">
+              <Quote size={14} className="text-muted-foreground" />
+              <h3 className="m-0 text-xs font-semibold text-muted-foreground">回答正文</h3>
+            </div>
+            <div className="relative rounded-xl border border-border/60 bg-muted/20 p-4 text-sm leading-7 text-foreground">
+              {chat.answer}
+              <p className="m-0 mt-3 text-muted-foreground">
+                这条回答来自 {chat.submitter}，用于分析品牌在相关问题中的可见性、引用来源和内容覆盖情况。
+              </p>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <div className="mb-3 flex items-center gap-2">
+              <Sparkles size={14} className="text-muted-foreground" />
+              <h3 className="m-0 text-xs font-semibold text-muted-foreground">提取信息</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                ["提交", chat.submitter],
+                ["特征", chat.features],
+                ["位置", chat.location],
+                ["状态", chat.status],
+              ].map(([label, value]) => (
+                <div className="rounded-xl border border-border/60 bg-card p-3" key={label}>
+                  <p className="m-0 text-xs text-muted-foreground">{label}</p>
+                  <p className="m-0 mt-1 text-sm font-semibold">{value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-3 flex items-center gap-2">
+              <ExternalLink size={14} className="text-muted-foreground" />
+              <h3 className="m-0 text-xs font-semibold text-muted-foreground">来源</h3>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card p-3">
+              <SourcePills sources={chat.sources} />
+            </div>
+          </div>
+        </section>
+      </aside>
+    </div>
+  );
+}
+
+function AllChatsContent({ filters }: { filters: GlobalFilterState }) {
+  const [selectedChat, setSelectedChat] = useState<ChatRecord | null>(null);
+  const filteredChats =
+    filters.models.length === 0 ? chatRecords : chatRecords.filter((row) => filters.models.includes(row.submitter));
+
+  return (
+    <>
+      <section className="grid gap-3">
+        <div>
+          <h2 className="m-0 text-[15px] font-semibold tracking-tight text-foreground">所有聊天记录</h2>
+          <p className="m-0 mt-1 text-xs leading-5 text-muted-foreground">所有聊天记录都用于您的提示</p>
+        </div>
+        <Card className="rounded-lg border border-border/70 bg-card p-0 shadow-none">
+          <div className="flex flex-col gap-3 border-b border-border/60 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+            <p className="m-0 text-sm font-medium">1至{filteredChats.length} 条，共{filteredChats.length} 条聊天记录</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <ChatFilterButton label="所有品牌" />
+              <ChatFilterButton label="所有功能" />
+              <ChatFilterButton label="所有来源" />
+            </div>
+          </div>
+          <div className="scrollbar-none overflow-x-auto">
+            <div className="min-w-[1240px]">
+              <div className="grid grid-cols-[minmax(520px,1fr)_92px_116px_92px_92px_76px_76px] border-b border-border/60 bg-muted/20 px-4 py-3 text-[11px] font-medium text-muted-foreground">
+                <span>聊天</span>
+                <span>提交</span>
+                <span>来源</span>
+                <span>特征</span>
+                <span>位置</span>
+                <span>状态</span>
+                <span className="text-right">创建</span>
+              </div>
+              {filteredChats.map((row, index) => (
+                <button
+                  className="grid w-full grid-cols-[minmax(520px,1fr)_92px_116px_92px_92px_76px_76px] items-center border-b border-border/50 px-4 py-3 text-left text-xs transition-colors last:border-b-0 hover:bg-muted/20"
+                  key={`${row.prompt}-${index}`}
+                  onClick={() => setSelectedChat(row)}
+                  type="button"
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="mt-1 h-2.5 w-2.5 shrink-0 rotate-45 rounded-[2px]" style={{ background: row.accent }} />
+                    <div className="min-w-0">
+                      <p className="m-0 truncate text-sm font-semibold text-foreground">{row.prompt}</p>
+                      <p className="m-0 mt-1 truncate text-xs leading-5 text-muted-foreground">{row.answer}</p>
+                    </div>
+                  </div>
+                  <span className="font-medium">{row.submitter}</span>
+                  <SourcePills sources={row.sources} />
+                  <span className="text-muted-foreground">{row.features}</span>
+                  <span className="text-muted-foreground">{row.location}</span>
+                  <span className="text-muted-foreground">{row.status}</span>
+                  <span className="text-right font-medium">{row.created}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 border-t border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-1">
+              {["‹", "1", "2", "3", "4", "5", "...", "16", "›"].map((page, index) => (
+                <button
+                  className={cn(
+                    "grid h-8 min-w-8 place-items-center rounded-md px-2 text-xs transition-colors",
+                    page === "1" ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                  )}
+                  key={`${page}-${index}`}
+                  type="button"
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
+            <div className="text-right text-xs leading-5 text-muted-foreground">
+              <p className="m-0 font-medium text-foreground">1至{filteredChats.length} 条，共{filteredChats.length} 条聊天记录</p>
+              <p className="m-0">在当前筛选范围中展示全部聊天</p>
+            </div>
+          </div>
         </Card>
       </section>
+      {selectedChat ? <ChatRecordDetailDrawer chat={selectedChat} onClose={() => setSelectedChat(null)} /> : null}
+    </>
+  );
+}
+
+function EmptyTabContent({ title }: { title: string }) {
+  return (
+    <Card className="min-h-[280px] rounded-lg border border-dashed border-border/80 p-8 shadow-none">
+      <div className="flex h-full min-h-[220px] flex-col items-center justify-center text-center">
+        <h2 className="m-0 text-base font-semibold">{title}</h2>
+        <p className="m-0 mt-2 text-sm text-muted-foreground">暂无内容</p>
+      </div>
+    </Card>
+  );
+}
+
+export function OverviewPage({ filters, navigate }: PageProps) {
+  const [activeTab, setActiveTab] = useState<OverviewTab>("visibility");
+
+  const tabContent = {
+    visibility: <VisibilityContent filters={filters} navigate={navigate} />,
+    citation: <CitationContent />,
+    sentiment: <EmptyTabContent title="情绪" />,
+    chats: <AllChatsContent filters={filters} />,
+  }[activeTab];
+
+  return (
+    <div className="mx-auto grid gap-6">
+      <TabNavigation activeTab={activeTab} onChange={setActiveTab} />
+
+      <div className="grid gap-6">{tabContent}</div>
     </div>
   );
 }

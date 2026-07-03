@@ -5,6 +5,20 @@ export type FilterChip = {
   value: string;
 };
 
+export type GlobalDateRange = "7d" | "30d" | "90d";
+
+export type GlobalFilterState = {
+  brands: string[];
+  dateRange: GlobalDateRange;
+  models: string[];
+  topics: string[];
+};
+
+export type GlobalFilterOption = {
+  label: string;
+  value: string;
+};
+
 export type BrandMetric = {
   name: string;
   score: number;

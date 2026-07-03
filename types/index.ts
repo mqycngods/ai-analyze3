@@ -2,6 +2,9 @@
 export type { NavId, NavItem } from "./nav";
 export type {
   FilterChip,
+  GlobalDateRange,
+  GlobalFilterOption,
+  GlobalFilterState,
   BrandMetric,
   CitationSourceRow,
   PromptRow,

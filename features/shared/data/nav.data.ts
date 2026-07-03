@@ -21,19 +21,11 @@ export const navItems: NavItem[] = [
     priority: "P0"
   },
   {
-    id: "chats",
-    label: "全部对话",
-    icon: "💬",
-    description: "AI 回答列表，点击查看对话详情与引用来源",
-    href: "/?view=chats",
-    priority: "P0"
-  },
-  {
-    id: "citations",
-    label: "引用分析",
-    icon: "🔗",
-    description: "支持 domain / host / url 三层钻取",
-    href: "/?view=citations",
+    id: "brands",
+    label: "品牌",
+    icon: "🏷️",
+    description: "品牌名称、域名与追踪范围管理",
+    href: "/?view=brands",
     priority: "P0"
   },
   {
@@ -54,9 +46,9 @@ export const navItems: NavItem[] = [
   },
   {
     id: "settings",
-    label: "设置中心",
+    label: "公司信息",
     icon: "⚙️",
-    description: "Profile、Tags、竞品、用量、账单",
+    description: "品牌简介、目标市场、受众分布",
     href: "/?view=settings",
     priority: "P1"
   }
