@@ -1,0 +1,117 @@
+// ============================================================
+// SCSS Mixins（可复用样式片段）
+// ------------------------------------------------------------
+// 通过 @use 'mixins' as * 引用。
+// 仅定义 mixin，不输出实际样式。
+// ============================================================
+
+@use 'tokens' as *;
+
+// ---- Flex 快捷布局 ----
+@mixin flex($direction: row, $justify: flex-start, $align: stretch, $gap: 0) {
+  display: flex;
+  flex-direction: $direction;
+  justify-content: $justify;
+  align-items: $align;
+  gap: $gap;
+}
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+// ---- Grid 快捷布局 ----
+@mixin grid($columns: 1, $gap: $spacing-md) {
+  display: grid;
+  grid-template-columns: repeat($columns, minmax(0, 1fr));
+  gap: $gap;
+}
+
+// ---- 截断 ----
+@mixin truncate($lines: 1) {
+  @if $lines == 1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  } @else {
+    display: -webkit-box;
+    -webkit-line-clamp: $lines;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+// ---- 卡片基础样式 ----
+@mixin card-base {
+  background: $color-card;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  transition: all $transition-base;
+}
+
+@mixin card-hover {
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+  }
+}
+
+// ---- 焦点环 ----
+@mixin focus-ring($color: $color-ring) {
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px $color-background, 0 0 0 4px $color;
+  }
+}
+
+// ---- 响应式断点 ----
+@mixin breakpoint-up($size) {
+  @if $size == sm {
+    @media (min-width: 640px) { @content; }
+  } @else if $size == md {
+    @media (min-width: 768px) { @content; }
+  } @else if $size == lg {
+    @media (min-width: 1024px) { @content; }
+  } @else if $size == xl {
+    @media (min-width: 1280px) { @content; }
+  }
+}
+
+@mixin breakpoint-down($size) {
+  @if $size == sm {
+    @media (max-width: 639px) { @content; }
+  } @else if $size == md {
+    @media (max-width: 767px) { @content; }
+  } @else if $size == lg {
+    @media (max-width: 1023px) { @content; }
+  }
+}
+
+// ---- 滚动条美化 ----
+@mixin scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: $color-border transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: $color-border;
+    border-radius: $radius-full;
+  }
+}
