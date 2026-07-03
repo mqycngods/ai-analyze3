@@ -1,17 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  ChatsPage,
-  CitationsPage,
-  InsightsPage,
-  KnowledgePage,
-  OverviewPage,
-  PromptsPage,
-  SettingsPage
-} from "@/components/AnalyticsViews";
-import { AppShell } from "@/components/Layout";
-import { navItems, type NavId } from "@/lib/mock-data";
+import { OverviewPage } from "@/features/overview/components";
+import { PromptsPage } from "@/features/prompts/components";
+import { ChatsPage } from "@/features/chats/components";
+import { CitationsPage } from "@/features/citations/components";
+import { KnowledgePage } from "@/features/knowledge/components";
+import { InsightsPage } from "@/features/insights/components";
+import { SettingsPage } from "@/features/settings/components";
+import { AppShell } from "@/components/layout/AppShell";
+import { navItems } from "@/features/shared/data/nav.data";
+import type { NavId } from "@/types";
 
 type RouteState = {
   title: string;
@@ -29,7 +28,7 @@ export function DashboardApp() {
     return {
       title: item?.label ?? "概览分析",
       description: item?.description ?? "AI 可见性核心概览",
-      currentPath: item?.href ?? "/?view=overview"
+      currentPath: item?.href ?? "/?view=overview",
     };
   }, [activePage]);
 
@@ -45,7 +44,7 @@ export function DashboardApp() {
     citations: <CitationsPage notify={notify} />,
     knowledge: <KnowledgePage notify={notify} />,
     insights: <InsightsPage notify={notify} />,
-    settings: <SettingsPage notify={notify} />
+    settings: <SettingsPage notify={notify} />,
   }[activePage];
 
   return (

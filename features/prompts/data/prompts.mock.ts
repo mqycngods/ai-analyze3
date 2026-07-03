@@ -1,0 +1,66 @@
+// Prompts feature mock 数据
+import type { PromptRow, TopicGroup } from "@/types/analytics";
+
+export const prompts: PromptRow[] = [
+  {
+    topic: "AI 创意工具",
+    text: "适合中小营销团队的最佳 AI 创意工具有哪些？",
+    visibility: "67%",
+    sentiment: "+55",
+    position: "#1.3",
+    volume: "4.2k",
+    intent: "信息型",
+    branding: "品牌词",
+    tags: ["核心 Topic", "中文", "品牌曝光"],
+    location: "中国",
+    status: "启用中",
+  },
+  {
+    topic: "AI 设计工作流",
+    text: "Canva 与 CreativeHit 是否能支撑完整 AI 设计工作流？",
+    visibility: "100%",
+    sentiment: "+39",
+    position: "#1.0",
+    volume: "2.1k",
+    intent: "商业型",
+    branding: "竞品对比",
+    tags: ["高意图", "竞品", "工作流"],
+    location: "中国",
+    status: "启用中",
+  },
+  {
+    topic: "Prompt 扩展",
+    text: "哪些工具可以把种子 Prompt 扩展成 fan-out 搜索问题？",
+    visibility: "-",
+    sentiment: "-",
+    position: "-",
+    volume: "1.3k",
+    intent: "信息型",
+    branding: "功能词",
+    tags: ["建议生成", "增长", "新建"],
+    location: "中国",
+    status: "建议中",
+  },
+  {
+    topic: "品牌对比",
+    text: "CreativeHit 与 Midjourney 在品牌内容团队场景中如何比较？",
+    visibility: "42%",
+    sentiment: "+26",
+    position: "#2.1",
+    volume: "980",
+    intent: "商业型",
+    branding: "竞品对比",
+    tags: ["对比页", "品牌词", "北美扩展"],
+    location: "美国",
+    status: "已归档",
+  },
+];
+
+export const topics: TopicGroup[] = [
+  { name: "全部 Topic", count: 40 },
+  { name: "AI 创意工具", count: 13 },
+  { name: "AI 内容生产", count: 7 },
+  { name: "设计工作流", count: 6 },
+  { name: "Prompt 扩展", count: 5 },
+  { name: "视觉素材", count: 3 },
+];
