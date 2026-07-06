@@ -777,7 +777,6 @@ function CitationCategoryCard() {
         <div className="flex flex-col gap-2 border-b border-border/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <h3 className="m-0 text-sm font-semibold">域名类型</h3>
-            <span className="text-sm font-medium text-muted-foreground">Domain types</span>
           </div>
           <div className="flex items-center gap-2 text-sm font-semibold">
             <span>总检索次数：1.1 千次</span>

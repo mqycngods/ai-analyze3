@@ -358,7 +358,7 @@ export function GlobalFilters({ className, value, onChange, onExport }: GlobalFi
       </div>
 
       <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-        <span className="tabular-nums">{selectedCount > 0 ? `已选 ${selectedCount} 项` : "未限定维度"}</span>
+        {/* <span className="tabular-nums">{selectedCount > 0 ? `已选 ${selectedCount} 项` : "未限定维度"}</span> */}
         <Button
           className="h-8 gap-1.5 rounded-md px-3 text-xs"
           disabled={isDefaultFilters(value)}
