@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useId, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   Check,
   ChevronDown,
@@ -139,7 +139,7 @@ const promptGroupOptions: Array<{ label: string; value: PromptGroupBy }> = [
   { label: "区域", value: "regions" },
 ];
 
-const todayLabel = "06 Jul, 2026 2026 年 7 月 6 日";
+const todayLabel = "2026/07/06";
 
 const initialPromptItems: PromptItem[] = [
   {
@@ -153,8 +153,8 @@ const initialPromptItems: PromptItem[] = [
     regions: ["United States 美国"],
     tags: ["品牌曝光"],
     platforms: ["ChatGPT"],
-    updated: "01 Jul, 2026 2026 年 7 月 1 日",
-    created: "01 Jul, 2026 2026 年 7 月 1 日",
+    updated: "2026/07/01",
+    created: "2026/07/01",
   },
   {
     id: "prompt-2",
@@ -167,8 +167,8 @@ const initialPromptItems: PromptItem[] = [
     regions: ["United States 美国"],
     tags: ["核心 Topic"],
     platforms: ["ChatGPT"],
-    updated: "03 Jul, 2026 2026 年 7 月 3 日",
-    created: "03 Jul, 2026 2026 年 7 月 3 日",
+    updated: "2026/07/03",
+    created: "2026/07/03",
   },
   {
     id: "prompt-3",
@@ -181,8 +181,8 @@ const initialPromptItems: PromptItem[] = [
     regions: ["United States 美国"],
     tags: ["竞品"],
     platforms: ["ChatGPT", "Perplexity"],
-    updated: "02 Jul, 2026 2026 年 7 月 2 日",
-    created: "01 Jul, 2026 2026 年 7 月 1 日",
+    updated: "2026/07/02",
+    created: "2026/07/01",
   },
 ];
 
@@ -237,10 +237,22 @@ function GroupBySelect({
   onChange: (value: PromptGroupBy) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const selected = promptGroupOptions.find((option) => option.value === value) ?? promptGroupOptions[1];
 
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
   return (
-    <div className="relative inline-flex">
+    <div className="relative inline-flex" ref={containerRef}>
       <button
         className="flex h-8 items-center gap-1.5 rounded-md border border-border bg-muted/20 px-3 text-left text-xs text-foreground outline-none transition-colors hover:border-muted-foreground/30 hover:bg-muted/50"
         onClick={() => setOpen((current) => !current)}
@@ -279,18 +291,124 @@ function MetricCell({ value }: { value: string | number }) {
   return <span className="font-semibold tabular-nums text-foreground">{value}</span>;
 }
 
+function SelectionCheckbox({
+  checked,
+  indeterminate = false,
+  onChange,
+  className,
+  ariaLabel,
+}: {
+  checked: boolean;
+  indeterminate?: boolean;
+  onChange: () => void;
+  className?: string;
+  ariaLabel?: string;
+}) {
+  return (
+    <button
+      aria-label={ariaLabel ?? (checked ? "取消选择" : "选择")}
+      className={cn(
+        "grid h-4 w-4 shrink-0 place-items-center rounded border transition-colors",
+        checked || indeterminate
+          ? "border-foreground bg-foreground text-background"
+          : "border-border bg-card hover:border-muted-foreground/50",
+        className
+      )}
+      onClick={(event) => {
+        event.stopPropagation();
+        onChange();
+      }}
+      type="button"
+    >
+      {checked ? <Check size={11} /> : indeterminate ? <span className="block h-[2px] w-2 rounded-full bg-background" /> : null}
+    </button>
+  );
+}
+
+function BulkActionBar({
+  count,
+  onClearSelection,
+  onBulkDelete,
+  onBulkStatusChange,
+}: {
+  count: number;
+  onClearSelection: () => void;
+  onBulkDelete: () => void;
+  onBulkStatusChange: (status: PromptStatus) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-md border border-border bg-muted/30 px-4 py-2">
+      <span className="text-xs font-medium text-foreground">已选择 {count} 项</span>
+      <div className="h-4 w-px bg-border" />
+      <Button
+        className="h-7 gap-1.5 rounded-md px-2.5 text-[11px]"
+        onClick={() => onBulkStatusChange("启用")}
+        size="sm"
+        type="button"
+        variant="secondary"
+      >
+        批量启用
+      </Button>
+      <Button
+        className="h-7 gap-1.5 rounded-md px-2.5 text-[11px]"
+        onClick={() => onBulkStatusChange("停用")}
+        size="sm"
+        type="button"
+        variant="secondary"
+      >
+        批量停用
+      </Button>
+      <Button
+        className="h-7 gap-1.5 rounded-md px-2.5 text-[11px] text-destructive hover:bg-destructive/10 hover:text-destructive"
+        onClick={onBulkDelete}
+        size="sm"
+        type="button"
+        variant="secondary"
+      >
+        <Trash2 size={12} />
+        批量删除
+      </Button>
+      <div className="flex-1" />
+      <button
+        aria-label="清除选择"
+        className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        onClick={onClearSelection}
+        type="button"
+      >
+        <X size={14} />
+      </button>
+    </div>
+  );
+}
+
 function PromptAnalysisTable({
   groupBy,
   items,
   onEdit,
+  selectedIds,
+  onSelectionChange,
 }: {
   groupBy: PromptGroupBy;
   items: PromptItem[];
   onEdit: (prompt?: PromptItem) => void;
+  selectedIds: Set<string>;
+  onSelectionChange: (ids: Set<string>) => void;
 }) {
   const groupRows = useMemo(() => getAnalysisRows(items, groupBy), [groupBy, items]);
   const groupLabel = promptGroupOptions.find((option) => option.value === groupBy)?.label ?? "主题";
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  const allIds = useMemo(() => new Set(items.map((item) => item.id)), [items]);
+  const allSelected = allIds.size > 0 && [...allIds].every((id) => selectedIds.has(id));
+  const someSelected = !allSelected && [...allIds].some((id) => selectedIds.has(id));
+
+  function toggleAll() {
+    if (allSelected) {
+      onSelectionChange(new Set());
+    } else {
+      onSelectionChange(new Set(allIds));
+    }
+  }
 
   function toggleGroup(group: string) {
     setExpandedGroups((current) => {
@@ -304,11 +422,41 @@ function PromptAnalysisTable({
     });
   }
 
+  function toggleGroupSelection(promptsInGroup: PromptItem[]) {
+    const groupIds = promptsInGroup.map((p) => p.id);
+    const allGroupSelected = groupIds.every((id) => selectedIds.has(id));
+    const next = new Set(selectedIds);
+    if (allGroupSelected) {
+      groupIds.forEach((id) => next.delete(id));
+    } else {
+      groupIds.forEach((id) => next.add(id));
+    }
+    onSelectionChange(next);
+  }
+
+  function toggleSingle(id: string) {
+    const next = new Set(selectedIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    onSelectionChange(next);
+  }
+
   return (
     <Card className="overflow-hidden rounded-lg border border-border/70 bg-card p-0 shadow-none">
       <div className="scrollbar-none overflow-x-auto">
-        <div className="min-w-[1180px]">
-          <div className="grid grid-cols-[minmax(340px,1fr)_110px_110px_110px_120px_110px_110px_80px_52px] border-b border-border/60 bg-muted/20 px-4 py-3 text-[11px] font-medium text-muted-foreground">
+        <div className="min-w-[1220px]">
+          <div className="grid grid-cols-[40px_minmax(340px,1fr)_110px_110px_110px_120px_110px_110px_80px_52px] border-b border-border/60 bg-muted/20 px-4 py-3 text-[11px] font-medium text-muted-foreground">
+            <span className="flex items-center">
+              <SelectionCheckbox
+                checked={allSelected}
+                indeterminate={someSelected}
+                onChange={toggleAll}
+                ariaLabel="全选"
+              />
+            </span>
             <span>{groupLabel}</span>
             <span>可见度排名</span>
             <span>可见性得分</span>
@@ -321,11 +469,14 @@ function PromptAnalysisTable({
           </div>
           {groupRows.map((topic) => {
             const isExpanded = expandedGroups.has(topic.group);
+            const groupPromptIds = topic.prompts.map((p) => p.id);
+            const allGroupChecked = groupPromptIds.every((id) => selectedIds.has(id));
+            const someGroupChecked = !allGroupChecked && groupPromptIds.some((id) => selectedIds.has(id));
 
             return (
               <div key={topic.group}>
                 <div
-                  className="grid w-full cursor-pointer grid-cols-[minmax(340px,1fr)_110px_110px_110px_120px_110px_110px_80px_52px] items-center border-b border-border/50 px-4 py-3 text-left text-xs hover:bg-muted/20"
+                  className="grid w-full cursor-pointer grid-cols-[40px_minmax(340px,1fr)_110px_110px_110px_120px_110px_110px_80px_52px] items-center border-b border-border/50 px-4 py-3 text-left text-xs hover:bg-muted/20"
                   onClick={() => toggleGroup(topic.group)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
@@ -336,6 +487,14 @@ function PromptAnalysisTable({
                   role="button"
                   tabIndex={0}
                 >
+                  <span className="flex items-center">
+                    <SelectionCheckbox
+                      checked={allGroupChecked}
+                      indeterminate={someGroupChecked}
+                      onChange={() => toggleGroupSelection(topic.prompts)}
+                      ariaLabel={`选择分组 ${topic.group}`}
+                    />
+                  </span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <ChevronDown
@@ -368,9 +527,19 @@ function PromptAnalysisTable({
                 {isExpanded
                   ? topic.prompts.map((prompt) => (
                       <div
-                        className="grid grid-cols-[minmax(340px,1fr)_110px_110px_110px_120px_110px_110px_80px_52px] items-center border-b border-border/40 px-4 py-3 text-xs last:border-b-0 hover:bg-muted/20"
+                        className={cn(
+                          "grid grid-cols-[40px_minmax(340px,1fr)_110px_110px_110px_120px_110px_110px_80px_52px] items-center border-b border-border/40 px-4 py-3 text-xs last:border-b-0 hover:bg-muted/20",
+                          selectedIds.has(prompt.id) && "bg-primary/[0.03]"
+                        )}
                         key={prompt.id}
                       >
+                        <span className="flex items-center">
+                          <SelectionCheckbox
+                            checked={selectedIds.has(prompt.id)}
+                            onChange={() => toggleSingle(prompt.id)}
+                            ariaLabel={`选择提示词 ${prompt.text}`}
+                          />
+                        </span>
                         <span className="truncate pl-6 text-foreground">{prompt.text}</span>
                         <span className="text-muted-foreground">-</span>
                         <MetricCell value="0%" />
@@ -417,6 +586,7 @@ function MultiSelect({
   const multiSelectId = useId();
   const group = useContext(MultiSelectGroupContext);
   const [localOpen, setLocalOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const open = group ? group.openId === multiSelectId : localOpen;
   const firstSelected = values[0];
   const selectedLabels = values.length > 0 ? values.join(", ") : label;
@@ -430,6 +600,17 @@ function MultiSelect({
     setLocalOpen(nextOpen);
   }
 
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
   function toggleValue(value: string) {
     if (values.includes(value)) {
       onChange(values.filter((item) => item !== value));
@@ -439,7 +620,7 @@ function MultiSelect({
   }
 
   return (
-    <div className={cn("relative", variant === "tag" ? "inline-flex" : "w-full")}>
+    <div className={cn("relative", variant === "tag" ? "inline-flex" : "w-full")} ref={containerRef}>
       <button
         className={cn(
           "flex items-center text-left text-xs text-foreground outline-none transition-colors",
@@ -613,23 +794,57 @@ function EditablePromptTable({
   onSelect,
   onUpdate,
   onDelete,
+  selectedIds,
+  onSelectionChange,
 }: {
   items: PromptItem[];
   activeId: string;
   onSelect: (prompt: PromptItem) => void;
   onUpdate: (id: string, patch: Partial<PromptItem>) => void;
   onDelete: (id: string) => void;
+  selectedIds: Set<string>;
+  onSelectionChange: (ids: Set<string>) => void;
 }) {
   const [editingCell, setEditingCell] = useState<EditingCell>(null);
+
+  const allIds = useMemo(() => new Set(items.map((item) => item.id)), [items]);
+  const allSelected = allIds.size > 0 && [...allIds].every((id) => selectedIds.has(id));
+  const someSelected = !allSelected && [...allIds].some((id) => selectedIds.has(id));
 
   function isEditing(rowId: string, field: EditableField) {
     return editingCell?.rowId === rowId && editingCell.field === field;
   }
 
+  function toggleAll() {
+    if (allSelected) {
+      onSelectionChange(new Set());
+    } else {
+      onSelectionChange(new Set(allIds));
+    }
+  }
+
+  function toggleSingle(id: string) {
+    const next = new Set(selectedIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    onSelectionChange(next);
+  }
+
   return (
     <div className="scrollbar-none overflow-x-auto">
-      <div className="min-w-[1540px]">
-        <div className="grid grid-cols-[92px_minmax(320px,1fr)_180px_180px_180px_170px_170px_180px_170px_170px_48px] border-b border-border/60 bg-muted/20 px-4 py-3 text-[11px] font-medium text-muted-foreground">
+      <div className="min-w-[1580px]">
+        <div className="grid grid-cols-[40px_92px_minmax(320px,1fr)_180px_180px_180px_170px_170px_180px_170px_170px_48px] items-center border-b border-border/60 bg-muted/20 px-4 py-3 text-[11px] font-medium text-muted-foreground">
+          <span className="flex items-center">
+            <SelectionCheckbox
+              checked={allSelected}
+              indeterminate={someSelected}
+              onChange={toggleAll}
+              ariaLabel="全选"
+            />
+          </span>
           <span>状态</span>
           <span>提示词（{items.length}）</span>
           <span>提示词类型</span>
@@ -643,17 +858,22 @@ function EditablePromptTable({
           <span />
         </div>
         {items.map((item) => {
-          const active = item.id === activeId;
-
           return (
             <div
               className={cn(
-                "grid grid-cols-[92px_minmax(320px,1fr)_180px_180px_180px_170px_170px_180px_170px_170px_48px] items-start gap-2 border-b border-border/50 px-4 py-3 text-xs transition-colors",
-                active ? "bg-emerald-50/80" : "hover:bg-muted/20"
+                "grid grid-cols-[40px_92px_minmax(320px,1fr)_180px_180px_180px_170px_170px_180px_170px_170px_48px] items-center border-b border-border/50 px-4 py-3 text-xs transition-colors hover:bg-muted/20",
+                selectedIds.has(item.id) && "bg-primary/[0.03]"
               )}
               key={item.id}
               onFocusCapture={() => onSelect(item)}
             >
+              <span className="flex items-center">
+                <SelectionCheckbox
+                  checked={selectedIds.has(item.id)}
+                  onChange={() => toggleSingle(item.id)}
+                  ariaLabel={`选择提示词 ${item.text}`}
+                />
+              </span>
               <select
                 className={cn(
                   "h-8 rounded-md border border-border bg-card px-2 text-xs outline-none focus:border-primary/60",
@@ -735,8 +955,8 @@ function EditablePromptTable({
                   <ValuePreview values={item.platforms} placeholder="选择平台" />
                 </ReadonlyCell>
               )}
-              <span className="truncate pt-2 text-muted-foreground">{item.updated}</span>
-              <span className="truncate pt-2 text-muted-foreground">{item.created}</span>
+              <span className="truncate text-muted-foreground">{item.updated}</span>
+              <span className="truncate text-muted-foreground">{item.created}</span>
               <button
                 aria-label="删除提示词"
                 className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-destructive/5 hover:text-destructive"
@@ -932,6 +1152,10 @@ function PromptDesignerDrawer({
   onDeletePrompt,
   onGenerateClick,
   onCsvUpload,
+  selectedIds,
+  onSelectionChange,
+  onBulkDelete,
+  onBulkStatusChange,
 }: {
   prompt: PromptItem;
   items: PromptItem[];
@@ -948,6 +1172,10 @@ function PromptDesignerDrawer({
   onDeletePrompt: (id: string) => void;
   onGenerateClick: () => void;
   onCsvUpload: (file: File) => void;
+  selectedIds: Set<string>;
+  onSelectionChange: (ids: Set<string>) => void;
+  onBulkDelete: () => void;
+  onBulkStatusChange: (status: PromptStatus) => void;
 }) {
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -956,7 +1184,7 @@ function PromptDesignerDrawer({
       <div aria-label="提示词设计器" aria-modal="true" className="fixed inset-0 z-50 animate-chat-drawer-overlay" role="dialog">
         <button className="absolute inset-0 cursor-default bg-black/35" onClick={onClose} type="button" aria-label="关闭提示词设计器背景" />
         <aside className="absolute right-0 top-0 flex h-full w-full max-w-[1280px] animate-chat-drawer-content flex-col border-l border-border bg-card shadow-2xl">
-          <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+          <header className="flex items-start justify-between gap-4 px-6 py-5">
             <div>
               <h2 className="m-0 text-xl font-semibold tracking-tight">提示词设计器</h2>
               <p className="m-0 mt-2 text-sm text-muted-foreground">管理提示词状态、维度和内容；表格内可直接编辑，CSV 可批量新增或更新。</p>
@@ -1037,37 +1265,27 @@ function PromptDesignerDrawer({
                 </div>
               </div>
 
+              {selectedIds.size > 0 ? (
+                <div className="px-4 py-2">
+                  <BulkActionBar
+                    count={selectedIds.size}
+                    onClearSelection={() => onSelectionChange(new Set())}
+                    onBulkDelete={onBulkDelete}
+                    onBulkStatusChange={onBulkStatusChange}
+                  />
+                </div>
+              ) : null}
+
               <EditablePromptTable
                 activeId={prompt.id}
                 items={items}
                 onDelete={onDeletePrompt}
                 onSelect={onSelect}
                 onUpdate={onUpdatePrompt}
+                selectedIds={selectedIds}
+                onSelectionChange={onSelectionChange}
               />
 
-              <div className="grid gap-4 px-6 py-5">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <MoreHorizontal size={14} />
-                  当前选中提示词详情
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium">提示词内容</label>
-                  <textarea
-                    className="min-h-[96px] w-full rounded-lg border border-border bg-card px-3 py-2 text-sm leading-6 outline-none focus:border-primary/60"
-                    value={prompt.text}
-                    onChange={(event) => onUpdatePrompt(prompt.id, { text: event.target.value, updated: todayLabel })}
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium">中文说明</label>
-                  <textarea
-                    className="min-h-[72px] w-full rounded-lg border border-border bg-card px-3 py-2 text-sm leading-6 outline-none focus:border-primary/60"
-                    placeholder="为团队补充提示词说明"
-                    value={prompt.translation}
-                    onChange={(event) => onUpdatePrompt(prompt.id, { translation: event.target.value, updated: todayLabel })}
-                  />
-                </div>
-              </div>
             </section>
           </div>
         </aside>
@@ -1092,6 +1310,7 @@ export function PromptsPage({ notify }: PageProps) {
   });
   const [designerOpen, setDesignerOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const activePrompt = prompts.find((item) => item.id === activePromptId) ?? prompts[0];
   function matchesSearch(item: PromptItem) {
@@ -1158,6 +1377,29 @@ export function PromptsPage({ notify }: PageProps) {
       }
       return next;
     });
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  function bulkDelete() {
+    if (selectedIds.size === 0) return;
+    setPrompts((current) => current.filter((item) => !selectedIds.has(item.id)));
+    notify?.(`已删除 ${selectedIds.size} 条提示词。`);
+    setSelectedIds(new Set());
+  }
+
+  function bulkStatusChange(status: PromptStatus) {
+    if (selectedIds.size === 0) return;
+    setPrompts((current) =>
+      current.map((item) =>
+        selectedIds.has(item.id) ? { ...item, status, updated: todayLabel } : item
+      )
+    );
+    notify?.(`已将 ${selectedIds.size} 条提示词${status === "启用" ? "启用" : "停用"}。`);
+    setSelectedIds(new Set());
   }
 
   function mergePrompts(nextItems: PromptItem[]) {
@@ -1228,7 +1470,16 @@ export function PromptsPage({ notify }: PageProps) {
           </div>
         </section>
 
-        <PromptAnalysisTable groupBy={groupBy} items={analysisPrompts} onEdit={openDesigner} />
+        {selectedIds.size > 0 ? (
+          <BulkActionBar
+            count={selectedIds.size}
+            onClearSelection={() => setSelectedIds(new Set())}
+            onBulkDelete={bulkDelete}
+            onBulkStatusChange={bulkStatusChange}
+          />
+        ) : null}
+
+        <PromptAnalysisTable groupBy={groupBy} items={analysisPrompts} onEdit={openDesigner} selectedIds={selectedIds} onSelectionChange={setSelectedIds} />
       </div>
 
       {designerOpen && activePrompt ? (
@@ -1248,6 +1499,10 @@ export function PromptsPage({ notify }: PageProps) {
           onSelect={(prompt) => setActivePromptId(prompt.id)}
           onStatusChange={setActiveStatus}
           onUpdatePrompt={updatePrompt}
+          selectedIds={selectedIds}
+          onSelectionChange={setSelectedIds}
+          onBulkDelete={bulkDelete}
+          onBulkStatusChange={bulkStatusChange}
         />
       ) : null}
 
