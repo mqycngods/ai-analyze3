@@ -1,5 +1,5 @@
 // 全局类型入口，统一导出所有类型
-export type { NavId, NavItem } from "./nav";
+export type { NavGroupId, NavId, NavItem } from "./nav";
 export type {
   FilterChip,
   GlobalDateRange,

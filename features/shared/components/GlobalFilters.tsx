@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Check, ChevronDown, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { Calendar, Check, ChevronDown, Download, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/ui";
 import {
@@ -21,6 +21,7 @@ type GlobalFiltersProps = {
   className?: string;
   value: GlobalFilterState;
   onChange: (value: GlobalFilterState) => void;
+  onExport?: () => void;
 };
 
 function getSelectedLabel(options: GlobalFilterOption[], selected: string[], fallback: string) {
@@ -39,7 +40,7 @@ function isDefaultFilters(value: GlobalFilterState) {
   );
 }
 
-export function GlobalFilters({ className, value, onChange }: GlobalFiltersProps) {
+export function GlobalFilters({ className, value, onChange, onExport }: GlobalFiltersProps) {
   const [openKey, setOpenKey] = useState<FilterKey | null>(null);
   const [isStuck, setIsStuck] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -227,6 +228,12 @@ export function GlobalFilters({ className, value, onChange }: GlobalFiltersProps
           <RotateCcw size={12} />
           重置
         </Button>
+        {onExport ? (
+          <Button className="h-8 gap-1.5 rounded-md px-3 text-xs" onClick={onExport} type="button" variant="secondary">
+            <Download size={12} />
+            导出
+          </Button>
+        ) : null}
       </div>
     </div>
   );

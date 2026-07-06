@@ -92,9 +92,9 @@ export function SettingsPage({ notify }: PageProps) {
   return (
     <div className="mx-auto max-w-[760px] pb-24">
       <section className="border-b border-border pb-10">
-        <h1 className="text-xl font-bold tracking-tight text-foreground">品牌简介</h1>
+        <h1 className="text-xl font-bold tracking-tight text-foreground">公司信息</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          定义品牌的身份、受众和定位，更改将用于生成提示建议。
+          定义公司与品牌的身份、受众和定位，更改将用于生成提示建议。
         </p>
 
         <div className="mt-12">

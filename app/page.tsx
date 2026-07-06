@@ -1,5 +1,5 @@
-import { DashboardApp } from "@/components/layout/DashboardApp/DashboardApp";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return <DashboardApp />;
+  redirect("/overview");
 }

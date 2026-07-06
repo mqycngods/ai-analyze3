@@ -1,11 +1,13 @@
 // 导航相关类型
 export type NavId =
   | "overview"
-  | "brands"
   | "prompts"
   | "knowledge"
   | "insights"
+  | "brands"
   | "settings";
+
+export type NavGroupId = "general" | "setting";
 
 export type NavItem = {
   id: NavId;
@@ -14,4 +16,5 @@ export type NavItem = {
   description: string;
   href: string;
   priority: "P0" | "P1" | "P2";
+  group: NavGroupId;
 };

@@ -323,7 +323,6 @@ function PromptDesignerDrawer({
           <div className="flex items-center gap-4 text-sm">
             <button className="border-b-2 border-foreground pb-2 font-medium" type="button">启用</button>
             <button className="pb-2 text-muted-foreground hover:text-foreground" type="button">停用</button>
-            <button className="pb-2 text-muted-foreground hover:text-foreground" type="button">停止使用</button>
           </div>
           <span className="text-xs text-muted-foreground">12 / 50 个提示词</span>
         </div>
