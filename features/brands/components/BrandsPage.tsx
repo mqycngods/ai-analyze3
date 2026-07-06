@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { MoreHorizontal, Plus, Search, Trash2, X } from "lucide-react";
+import { Edit3, MoreHorizontal, Plus, Search, Trash2, X } from "lucide-react";
 import { Button, Card } from "@/ui";
 import { brandRows, type BrandRow } from "@/features/brands/data/brands.mock";
 import { cn } from "@/lib/utils";
@@ -36,10 +36,12 @@ function HeaderCell({ children, className }: { children?: React.ReactNode; class
 function BrandTable({
   rows,
   onOpenAddBrand,
+  onOpenEditBrand,
   onDeleteBrand,
 }: {
   rows: BrandRow[];
   onOpenAddBrand: () => void;
+  onOpenEditBrand: (brand: BrandRow) => void;
   onDeleteBrand: (brand: BrandRow) => void;
 }) {
   return (
@@ -109,9 +111,14 @@ function BrandTable({
                     className="z-50 w-64 rounded-lg border border-border bg-popover p-2 text-xs text-popover-foreground shadow-lg"
                     sideOffset={6}
                   >
-                    <p className="m-0 px-2 pb-2 pt-1 leading-5 text-muted-foreground">
-                      永久删除该品牌及其关联数据。
-                    </p>
+                    <DropdownMenu.Item
+                      className="flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 font-medium text-foreground outline-none transition-colors hover:bg-muted focus:bg-muted"
+                      onSelect={() => onOpenEditBrand(brand)}
+                    >
+                      <Edit3 size={13} />
+                      编辑品牌
+                    </DropdownMenu.Item>
+                    <div className="my-1 h-px bg-border/70" />
                     <DropdownMenu.Item
                       className="flex h-8 cursor-pointer items-center gap-2 rounded-md bg-destructive px-2.5 font-medium text-destructive-foreground outline-none transition-colors hover:bg-destructive/90 focus:bg-destructive/90"
                       onSelect={() => onDeleteBrand(brand)}
@@ -134,6 +141,149 @@ function BrandTable({
   );
 }
 
+function cleanList(items: string[]) {
+  return items.map((item) => item.trim()).filter(Boolean);
+}
+
+function removeListItem(items: string[], index: number) {
+  const nextItems = items.filter((_, itemIndex) => itemIndex !== index);
+  return nextItems.length > 0 ? nextItems : [""];
+}
+
+function BrandFormContent({
+  displayName,
+  setDisplayName,
+  trackedNames,
+  setTrackedNames,
+  domains,
+  setDomains,
+  useRegex,
+  setUseRegex,
+}: {
+  displayName: string;
+  setDisplayName: (value: string) => void;
+  trackedNames: string[];
+  setTrackedNames: React.Dispatch<React.SetStateAction<string[]>>;
+  domains: string[];
+  setDomains: React.Dispatch<React.SetStateAction<string[]>>;
+  useRegex: boolean;
+  setUseRegex: React.Dispatch<React.SetStateAction<boolean>>;
+}) {
+  function updateTrackedName(index: number, value: string) {
+    setTrackedNames((current) => current.map((item, itemIndex) => (itemIndex === index ? value : item)));
+  }
+
+  function updateDomain(index: number, value: string) {
+    setDomains((current) => current.map((item, itemIndex) => (itemIndex === index ? value : item)));
+  }
+
+  return (
+    <div className="grid gap-6">
+      <label className="block">
+        <span className="mb-2 block text-xs font-medium text-muted-foreground">显示名称</span>
+        <input
+          autoFocus
+          className="h-9 w-full rounded-md border border-border bg-card px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+          value={displayName}
+          onChange={(event) => setDisplayName(event.target.value)}
+        />
+      </label>
+
+      <section className="border-t border-border/70 pt-6">
+        <h3 className="m-0 text-sm font-semibold text-foreground">记录名称</h3>
+        <p className="m-0 mt-2 text-xs leading-5 text-muted-foreground">
+          在人工智能生成的回答中，只有被记录下来的名称及其别名会被用于识别品牌。
+        </p>
+        <div className="mt-4 grid gap-2">
+          {trackedNames.map((trackedName, index) => (
+            <div className="flex items-center gap-2" key={`tracked-${index}`}>
+              <input
+                className="h-8 min-w-0 flex-1 rounded-md border border-border bg-card px-3 text-xs outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+                placeholder="记录名称"
+                value={trackedName}
+                onChange={(event) => updateTrackedName(index, event.target.value)}
+              />
+              <button
+                aria-label="移除记录名称"
+                className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={() => setTrackedNames((current) => removeListItem(current, index))}
+                type="button"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          ))}
+          <button
+            className="inline-flex w-fit items-center gap-1.5 rounded-md px-1 py-1 text-xs font-medium text-foreground hover:bg-muted"
+            onClick={() => setTrackedNames((current) => [...current, ""])}
+            type="button"
+          >
+            <Plus size={12} />
+            添加别名
+          </button>
+        </div>
+
+        <div className="mt-6 flex items-center justify-between gap-4">
+          <div>
+            <h4 className="m-0 text-xs font-semibold text-foreground">高级：正则表达式</h4>
+            <p className="m-0 mt-2 text-xs leading-5 text-muted-foreground">
+              将正则表达式应用于公司名称，以实现匹配或转换操作。
+            </p>
+          </div>
+          <button
+            aria-pressed={useRegex}
+            className={cn(
+              "relative h-5 w-9 shrink-0 rounded-full border transition-colors",
+              useRegex ? "border-primary bg-primary" : "border-border bg-muted"
+            )}
+            onClick={() => setUseRegex((current) => !current)}
+            type="button"
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 h-4 w-4 rounded-full bg-card shadow-sm transition-transform",
+                useRegex ? "translate-x-[17px]" : "translate-x-0.5"
+              )}
+            />
+          </button>
+        </div>
+      </section>
+
+      <section className="border-t border-border/70 pt-6">
+        <h3 className="m-0 text-sm font-semibold text-foreground">领域 / 范围</h3>
+        <div className="mt-3 grid gap-2">
+          {domains.map((domain, index) => (
+            <div className="flex items-center gap-2" key={`domain-${index}`}>
+              <input
+                className="h-8 min-w-0 flex-1 rounded-md border border-border bg-card px-3 text-xs outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+                placeholder="域名"
+                value={domain}
+                onChange={(event) => updateDomain(index, event.target.value)}
+              />
+              <button
+                aria-label="移除域名"
+                className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={() => setDomains((current) => removeListItem(current, index))}
+                type="button"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          ))}
+          <button
+            className="inline-flex w-fit items-center gap-1.5 rounded-md px-1 py-1 text-xs font-medium text-foreground hover:bg-muted"
+            onClick={() => setDomains((current) => [...current, ""])}
+            type="button"
+          >
+            <Plus size={12} />
+            添加备用域名
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function AddBrandDrawer({
   onClose,
   onCreateBrand,
@@ -148,21 +298,13 @@ function AddBrandDrawer({
 
   const canCreate = displayName.trim().length > 0;
 
-  function updateTrackedName(index: number, value: string) {
-    setTrackedNames((current) => current.map((item, itemIndex) => (itemIndex === index ? value : item)));
-  }
-
-  function updateDomain(index: number, value: string) {
-    setDomains((current) => current.map((item, itemIndex) => (itemIndex === index ? value : item)));
-  }
-
   function createBrand() {
     if (!canCreate) {
       return;
     }
 
-    const cleanTrackedNames = trackedNames.map((item) => item.trim()).filter(Boolean);
-    const cleanDomains = domains.map((item) => item.trim()).filter(Boolean);
+    const cleanTrackedNames = cleanList(trackedNames);
+    const cleanDomains = cleanList(domains);
     const colors = ["#EC4899", "#2F5DB8", "#7A7D82", "#1D4DFF", "#80848B", "#64748B"];
 
     onCreateBrand({
@@ -198,116 +340,23 @@ function AddBrandDrawer({
           <div className="h-28 rounded-t-lg bg-muted/45" />
           <div className="-mt-7 ml-1 h-12 w-12 rounded-lg border border-border bg-card shadow-sm" />
 
-          <div className="mt-8 grid gap-6">
-            <label className="block">
-              <span className="mb-2 block text-xs font-medium text-muted-foreground">Display Name 显示名称</span>
-              <input
-                autoFocus
-                className="h-9 w-full rounded-md border border-border bg-card px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
-              />
-            </label>
-
-            <section className="border-t border-border/70 pt-6">
-              <h3 className="m-0 text-sm font-semibold text-foreground">Tracked Name 已记录的名称</h3>
-              <p className="m-0 mt-2 text-xs leading-5 text-muted-foreground">
-                Only the tracked name and its aliases are matched in AI answers to identify the brand.
-              </p>
-              <p className="m-0 mt-1 text-xs leading-5 text-muted-foreground">
-                在人工智能生成的回答中，只有被记录下来的名称及其别名会被用于识别品牌。
-              </p>
-              <div className="mt-4 grid gap-2">
-                {trackedNames.map((trackedName, index) => (
-                  <div className="flex items-center gap-2" key={`tracked-${index}`}>
-                    <input
-                      className="h-8 min-w-0 flex-1 rounded-md border border-border bg-card px-3 text-xs outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
-                      placeholder="Tracked Name"
-                      value={trackedName}
-                      onChange={(event) => updateTrackedName(index, event.target.value)}
-                    />
-                    <button
-                      aria-label="移除记录名称"
-                      className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                      onClick={() => setTrackedNames((current) => current.filter((_, itemIndex) => itemIndex !== index))}
-                      type="button"
-                    >
-                      <X size={13} />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  className="inline-flex w-fit items-center gap-1.5 rounded-md px-1 py-1 text-xs font-medium text-foreground hover:bg-muted"
-                  onClick={() => setTrackedNames((current) => [...current, ""])}
-                  type="button"
-                >
-                  <Plus size={12} />
-                  Add Alias 添加别名
-                </button>
-              </div>
-
-              <div className="mt-6 flex items-center justify-between gap-4">
-                <div>
-                  <h4 className="m-0 text-xs font-semibold text-foreground">Advanced: Regular Expression</h4>
-                  <p className="m-0 mt-2 text-xs leading-5 text-muted-foreground">Apply a regex to the company name for matching or transformation.</p>
-                  <p className="m-0 mt-1 text-xs leading-5 text-muted-foreground">将正则表达式应用于公司名称，以实现匹配或转换操作。</p>
-                </div>
-                <button
-                  aria-pressed={useRegex}
-                  className={cn(
-                    "relative h-5 w-9 shrink-0 rounded-full border transition-colors",
-                    useRegex ? "border-primary bg-primary" : "border-border bg-muted"
-                  )}
-                  onClick={() => setUseRegex((current) => !current)}
-                  type="button"
-                >
-                  <span
-                    className={cn(
-                      "absolute top-0.5 h-4 w-4 rounded-full bg-card shadow-sm transition-transform",
-                      useRegex ? "translate-x-[17px]" : "translate-x-0.5"
-                    )}
-                  />
-                </button>
-              </div>
-            </section>
-
-            <section className="border-t border-border/70 pt-6">
-              <h3 className="m-0 text-sm font-semibold text-foreground">Domains 领域/范围</h3>
-              <div className="mt-3 grid gap-2">
-                {domains.map((domain, index) => (
-                  <div className="flex items-center gap-2" key={`domain-${index}`}>
-                    <input
-                      className="h-8 min-w-0 flex-1 rounded-md border border-border bg-card px-3 text-xs outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
-                      placeholder="Domain"
-                      value={domain}
-                      onChange={(event) => updateDomain(index, event.target.value)}
-                    />
-                    <button
-                      aria-label="移除域名"
-                      className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                      onClick={() => setDomains((current) => current.filter((_, itemIndex) => itemIndex !== index))}
-                      type="button"
-                    >
-                      <X size={13} />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  className="inline-flex w-fit items-center gap-1.5 rounded-md px-1 py-1 text-xs font-medium text-foreground hover:bg-muted"
-                  onClick={() => setDomains((current) => [...current, ""])}
-                  type="button"
-                >
-                  <Plus size={12} />
-                  Add alternative domain 添加备用域名
-                </button>
-              </div>
-            </section>
+          <div className="mt-8">
+            <BrandFormContent
+              displayName={displayName}
+              domains={domains}
+              setDisplayName={setDisplayName}
+              setDomains={setDomains}
+              setTrackedNames={setTrackedNames}
+              setUseRegex={setUseRegex}
+              trackedNames={trackedNames}
+              useRegex={useRegex}
+            />
           </div>
         </div>
 
         <footer className="flex justify-end gap-2 border-t border-border/70 px-6 py-3">
           <Button className="h-8 rounded-md px-3 text-xs" onClick={onClose} size="sm" type="button" variant="secondary">
-            Cancel 取消
+            取消
           </Button>
           <Button
             className="h-8 rounded-md bg-foreground px-3 text-xs text-background hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground"
@@ -316,7 +365,7 @@ function AddBrandDrawer({
             size="sm"
             type="button"
           >
-            Create 创建
+            创建
           </Button>
         </footer>
       </aside>
@@ -324,9 +373,92 @@ function AddBrandDrawer({
   );
 }
 
+function EditBrandDialog({
+  brand,
+  onClose,
+  onSaveBrand,
+}: {
+  brand: BrandRow;
+  onClose: () => void;
+  onSaveBrand: (brand: BrandRow) => void;
+}) {
+  const [displayName, setDisplayName] = useState(brand.name);
+  const [trackedNames, setTrackedNames] = useState(brand.trackedName.split(",").map((item) => item.trim()).filter(Boolean));
+  const [domains, setDomains] = useState(brand.domains.length > 0 ? brand.domains : [""]);
+  const [useRegex, setUseRegex] = useState(false);
+
+  const canSave = displayName.trim().length > 0;
+
+  function saveBrand() {
+    if (!canSave) {
+      return;
+    }
+
+    const cleanTrackedNames = cleanList(trackedNames);
+
+    onSaveBrand({
+      ...brand,
+      name: displayName.trim(),
+      trackedName: cleanTrackedNames.length > 0 ? cleanTrackedNames.join(", ") : displayName.trim(),
+      domains: cleanList(domains),
+    });
+  }
+
+  return (
+    <div aria-label={`编辑${brand.name}`} aria-modal="true" className="fixed inset-0 z-50 grid place-items-center px-4 py-6" role="dialog">
+      <button className="absolute inset-0 cursor-default bg-black/35" onClick={onClose} type="button" aria-label="关闭编辑品牌背景" />
+      <div className="relative flex max-h-full w-full max-w-[560px] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-2xl">
+        <header className="flex items-start justify-between gap-4 border-b border-border/60 px-6 py-5">
+          <div className="min-w-0">
+            <h2 className="m-0 text-lg font-semibold tracking-tight text-foreground">编辑品牌</h2>
+            <p className="m-0 mt-1 truncate text-xs leading-5 text-muted-foreground">{brand.name}</p>
+          </div>
+          <button
+            aria-label="关闭"
+            className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={onClose}
+            type="button"
+          >
+            <X size={17} />
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-auto px-6 py-6">
+          <BrandFormContent
+            displayName={displayName}
+            domains={domains}
+            setDisplayName={setDisplayName}
+            setDomains={setDomains}
+            setTrackedNames={setTrackedNames}
+            setUseRegex={setUseRegex}
+            trackedNames={trackedNames.length > 0 ? trackedNames : [""]}
+            useRegex={useRegex}
+          />
+        </div>
+
+        <footer className="flex justify-end gap-2 border-t border-border/70 px-6 py-3">
+          <Button className="h-8 rounded-md px-3 text-xs" onClick={onClose} size="sm" type="button" variant="secondary">
+            取消
+          </Button>
+          <Button
+            className="h-8 rounded-md bg-foreground px-3 text-xs text-background hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground"
+            disabled={!canSave}
+            onClick={saveBrand}
+            size="sm"
+            type="button"
+          >
+            保存
+          </Button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
 export function BrandsPage({ notify }: PageProps) {
   const [rows, setRows] = useState(brandRows);
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
+  const [editingBrand, setEditingBrand] = useState<BrandRow | null>(null);
 
   function deleteBrand(brand: BrandRow) {
     setRows((currentRows) => currentRows.filter((row) => row.id !== brand.id));
@@ -339,18 +471,29 @@ export function BrandsPage({ notify }: PageProps) {
     notify?.(`已创建 ${brand.name}。`);
   }
 
+  function saveBrand(brand: BrandRow) {
+    setRows((currentRows) => currentRows.map((row) => (row.id === brand.id ? brand : row)));
+    setEditingBrand(null);
+    notify?.(`已保存 ${brand.name}。`);
+  }
+
   return (
     <>
       <div className="grid gap-4">
         <BrandTable
           onDeleteBrand={deleteBrand}
           onOpenAddBrand={() => setIsAddDrawerOpen(true)}
+          onOpenEditBrand={setEditingBrand}
           rows={rows}
         />
       </div>
 
       {isAddDrawerOpen ? (
         <AddBrandDrawer onClose={() => setIsAddDrawerOpen(false)} onCreateBrand={createBrand} />
+      ) : null}
+
+      {editingBrand ? (
+        <EditBrandDialog brand={editingBrand} onClose={() => setEditingBrand(null)} onSaveBrand={saveBrand} />
       ) : null}
     </>
   );

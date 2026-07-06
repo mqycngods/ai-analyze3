@@ -32,6 +32,8 @@ import { cn } from "@/lib/utils";
 
 type PageProps = {
   filters: GlobalFilterState;
+  activeTab?: OverviewTab;
+  onTabChange?: (tab: OverviewTab) => void;
   navigate?: (page: NavId) => void;
   notify?: (message: string) => void;
 };
@@ -60,7 +62,7 @@ type RankingTableProps = {
   onExpand?: () => void;
 };
 
-type OverviewTab = "visibility" | "citation" | "sentiment" | "insights" | "chats";
+export type OverviewTab = "visibility" | "citation" | "sentiment" | "insights" | "chats";
 
 type CitationRow = {
   domain: string;
@@ -1179,20 +1181,28 @@ function AllChatsContent({ filters }: { filters: GlobalFilterState }) {
   );
 }
 
-export function OverviewPage({ filters, notify }: PageProps) {
-  const [activeTab, setActiveTab] = useState<OverviewTab>("visibility");
+export function OverviewPage({ activeTab: controlledActiveTab, filters, notify, onTabChange }: PageProps) {
+  const [localActiveTab, setLocalActiveTab] = useState<OverviewTab>("visibility");
+  const activeTab = controlledActiveTab ?? localActiveTab;
+
+  function handleTabChange(tab: OverviewTab) {
+    if (controlledActiveTab === undefined) {
+      setLocalActiveTab(tab);
+    }
+    onTabChange?.(tab);
+  }
 
   const tabContent = {
-    visibility: <VisibilityContent filters={filters} onShowInsights={() => setActiveTab("insights")} />,
+    visibility: <VisibilityContent filters={filters} onShowInsights={() => handleTabChange("insights")} />,
     citation: <CitationContent />,
-    sentiment: <SentimentContent filters={filters} onShowInsights={() => setActiveTab("insights")} />,
+    sentiment: <SentimentContent filters={filters} onShowInsights={() => handleTabChange("insights")} />,
     insights: <InsightsPage filters={filters} notify={notify} />,
     chats: <AllChatsContent filters={filters} />,
   }[activeTab];
 
   return (
     <div className="mx-auto grid gap-6">
-      <TabNavigation activeTab={activeTab} onChange={setActiveTab} />
+      <TabNavigation activeTab={activeTab} onChange={handleTabChange} />
 
       <div className="grid gap-6">{tabContent}</div>
     </div>

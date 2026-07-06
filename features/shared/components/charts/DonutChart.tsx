@@ -7,7 +7,7 @@ import type { DonutChartProps } from "./types";
 
 /**
  * DonutChart —— 环形饼图
- * 带圆角分段、hover 高亮与中心文本。
+ * 带连续分段、hover 高亮与中心文本。
  * 用于声量份额等占比场景。
  */
 export function DonutChart({ data, centerLabel, height = 168 }: DonutChartProps) {
@@ -29,9 +29,7 @@ export function DonutChart({ data, centerLabel, height = 168 }: DonutChartProps)
           center: ["50%", "50%"],
           avoidLabelOverlap: true,
           itemStyle: {
-            borderRadius: 6,
-            borderColor: t.card,
-            borderWidth: 2,
+            borderWidth: 0,
           },
           label: {
             show: !!centerLabel,
