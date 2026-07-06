@@ -110,7 +110,7 @@ export function AssistantPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-48px)] max-w-7xl flex-col gap-4">
+    <div className="mx-auto flex min-h-[calc(100vh-48px)] flex-col gap-4">
       <header className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border/70 bg-card px-5 py-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
         <div className="flex items-center gap-3">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
