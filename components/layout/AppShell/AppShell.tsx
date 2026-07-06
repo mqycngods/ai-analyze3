@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookOpen,
+  Bot,
   Brain,
   ChartColumn,
   ClipboardCheck,
@@ -20,6 +21,7 @@ type AppShellProps = {
 };
 
 const navIcons: Record<NavId, LucideIcon> = {
+  assistant: Bot,
   overview: ChartColumn,
   prompts: Brain,
   knowledge: BookOpen,
@@ -29,6 +31,7 @@ const navIcons: Record<NavId, LucideIcon> = {
 };
 
 const navGroupLabels: Record<NavGroupId, string> = {
+  assistant: "",
   general: "主菜单",
   setting: "系统设置",
 };
@@ -44,7 +47,7 @@ function NavigationSection({
 }) {
   return (
     <div className="grid gap-2">
-      <p className="px-3 text-xs font-medium text-muted-foreground/80">{label}</p>
+      {label ? <p className="px-3 text-xs font-medium text-muted-foreground/80">{label}</p> : null}
       <nav className="grid gap-1">
         {items.map((item) => {
           const Icon = navIcons[item.id];
@@ -83,6 +86,7 @@ export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
 
   const groupedItems = {
+    assistant: navItems.filter((item) => item.group === "assistant"),
     general: navItems.filter((item) => item.group === "general"),
     setting: navItems.filter((item) => item.group === "setting"),
   };
@@ -107,6 +111,11 @@ export function AppShell({ children }: AppShellProps) {
         </div>
 
         <div className="grid gap-6">
+          <NavigationSection
+            currentPath={pathname}
+            items={groupedItems.assistant}
+            label={navGroupLabels.assistant}
+          />
           <NavigationSection
             currentPath={pathname}
             items={groupedItems.general}

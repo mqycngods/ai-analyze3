@@ -1,5 +1,6 @@
 // 导航相关类型
 export type NavId =
+  | "assistant"
   | "overview"
   | "prompts"
   | "knowledge"
@@ -7,7 +8,7 @@ export type NavId =
   | "brands"
   | "settings";
 
-export type NavGroupId = "general" | "setting";
+export type NavGroupId = "assistant" | "general" | "setting";
 
 export type NavItem = {
   id: NavId;

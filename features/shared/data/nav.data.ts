@@ -5,6 +5,15 @@ import type { NavItem } from "@/types";
 
 export const navItems: NavItem[] = [
   {
+    id: "assistant",
+    label: "助手",
+    icon: "🤖",
+    description: "与 agent 对话，快速生成分析任务",
+    href: "/assistant",
+    priority: "P0",
+    group: "assistant"
+  },
+  {
     id: "overview",
     label: "概览分析",
     icon: "📊",
