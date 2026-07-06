@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { Button, Card } from "@/ui";
+import { InsightsPage } from "@/features/insights/components";
 import {
   averagePositionTrend,
   rankingRows,
@@ -59,7 +60,7 @@ type RankingTableProps = {
   onExpand?: () => void;
 };
 
-type OverviewTab = "visibility" | "citation" | "sentiment" | "chats";
+type OverviewTab = "visibility" | "citation" | "sentiment" | "insights" | "chats";
 
 type CitationRow = {
   domain: string;
@@ -112,6 +113,7 @@ const overviewTabs: { id: OverviewTab; label: string }[] = [
   { id: "visibility", label: "可见性" },
   { id: "citation", label: "引用" },
   { id: "sentiment", label: "情绪" },
+  { id: "insights", label: "洞察" },
   { id: "chats", label: "所有聊天" },
 ];
 
@@ -558,7 +560,13 @@ function TabNavigation({
   );
 }
 
-function VisibilityContent({ filters, navigate }: { filters: GlobalFilterState; navigate?: (page: NavId) => void }) {
+function VisibilityContent({
+  filters,
+  onShowInsights,
+}: {
+  filters: GlobalFilterState;
+  onShowInsights?: () => void;
+}) {
   const [visibilityActiveLegend, setVisibilityActiveLegend] = useState([currentCycleLabel, comparisonLabel]);
   const [shareActiveLegend, setShareActiveLegend] = useState(shareOfVoice.map((item) => item.name));
   const [averageActiveLegend, setAverageActiveLegend] = useState([currentCycleLabel, comparisonLabel]);
@@ -619,7 +627,7 @@ function VisibilityContent({ filters, navigate }: { filters: GlobalFilterState; 
         </ChartPanel>
         <RankingTable
           mode="score"
-          onExpand={() => navigate?.("insights")}
+          onExpand={onShowInsights}
           rows={filteredVisibilityRows}
           selectedBrand={selectedBrand}
           title="可见性得分排名"
@@ -644,7 +652,7 @@ function VisibilityContent({ filters, navigate }: { filters: GlobalFilterState; 
         </ChartPanel>
         <RankingTable
           mode="share"
-          onExpand={() => navigate?.("insights")}
+          onExpand={onShowInsights}
           rows={filteredShareRows}
           selectedBrand={selectedBrand}
           title="声量份额排名"
@@ -676,7 +684,7 @@ function VisibilityContent({ filters, navigate }: { filters: GlobalFilterState; 
         </ChartPanel>
         <RankingTable
           mode="rank"
-          onExpand={() => navigate?.("insights")}
+          onExpand={onShowInsights}
           rows={filteredRankingRows}
           selectedBrand={selectedBrand}
           title="平均排名榜"
@@ -688,7 +696,13 @@ function VisibilityContent({ filters, navigate }: { filters: GlobalFilterState; 
   );
 }
 
-function SentimentContent({ filters, navigate }: { filters: GlobalFilterState; navigate?: (page: NavId) => void }) {
+function SentimentContent({
+  filters,
+  onShowInsights,
+}: {
+  filters: GlobalFilterState;
+  onShowInsights?: () => void;
+}) {
   const filteredSentimentRows = filterBrandRows(sentimentRows, filters.brands);
   const selectedBrand = filters.brands[0] ?? "Midjourney";
   const trendData = filterTrendByDate(sentimentTrend, filters.dateRange);
@@ -704,7 +718,7 @@ function SentimentContent({ filters, navigate }: { filters: GlobalFilterState; n
       </ChartPanel>
       <RankingTable
         mode="sentiment"
-        onExpand={() => navigate?.("insights")}
+        onExpand={onShowInsights}
         rows={filteredSentimentRows}
         selectedBrand={selectedBrand}
         title="情绪得分排名"
@@ -1165,13 +1179,14 @@ function AllChatsContent({ filters }: { filters: GlobalFilterState }) {
   );
 }
 
-export function OverviewPage({ filters, navigate }: PageProps) {
+export function OverviewPage({ filters, notify }: PageProps) {
   const [activeTab, setActiveTab] = useState<OverviewTab>("visibility");
 
   const tabContent = {
-    visibility: <VisibilityContent filters={filters} navigate={navigate} />,
+    visibility: <VisibilityContent filters={filters} onShowInsights={() => setActiveTab("insights")} />,
     citation: <CitationContent />,
-    sentiment: <SentimentContent filters={filters} navigate={navigate} />,
+    sentiment: <SentimentContent filters={filters} onShowInsights={() => setActiveTab("insights")} />,
+    insights: <InsightsPage filters={filters} notify={notify} />,
     chats: <AllChatsContent filters={filters} />,
   }[activeTab];
 

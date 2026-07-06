@@ -32,15 +32,6 @@ export const navItems: NavItem[] = [
     group: "general"
   },
   {
-    id: "insights",
-    label: "洞察",
-    icon: "💡",
-    description: "竞品 Gap 分析、品牌洞察与行动建议",
-    href: "/insights",
-    priority: "P0",
-    group: "general"
-  },
-  {
     id: "brands",
     label: "品牌",
     icon: "🏷️",

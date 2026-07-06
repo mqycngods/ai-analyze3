@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { createContext, useContext, useId, useMemo, useRef, useState } from "react";
 import {
   Check,
   ChevronDown,
@@ -40,10 +40,10 @@ type PromptItem = {
   created: string;
 };
 
-type TopicAnalysisRow = {
-  topic: string;
+type PromptAnalysisRow = {
+  group: string;
   total: number;
-  prompts: string[];
+  prompts: PromptItem[];
   visibilityRank: string;
   visibilityScore: string;
   shareOfVoice: string;
@@ -58,6 +58,19 @@ type MultiSelectOption = {
   value: string;
 };
 
+type MultiSelectGroupContextValue = {
+  openId: string | null;
+  setOpenId: (id: string | null) => void;
+};
+
+const MultiSelectGroupContext = createContext<MultiSelectGroupContextValue | null>(null);
+
+function MultiSelectGroupProvider({ children }: { children: React.ReactNode }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  return <MultiSelectGroupContext.Provider value={{ openId, setOpenId }}>{children}</MultiSelectGroupContext.Provider>;
+}
+
 type PromptFilters = {
   types: string[];
   topics: string[];
@@ -66,6 +79,8 @@ type PromptFilters = {
   regions: string[];
   platforms: string[];
 };
+
+type PromptGroupBy = "types" | "topics" | "tags" | "regions";
 
 type EditableField = "status" | "text" | "types" | "topics" | "languages" | "regions" | "tags" | "platforms";
 
@@ -117,6 +132,13 @@ const platformOptions: MultiSelectOption[] = [
   { label: "Claude", value: "Claude" },
 ];
 
+const promptGroupOptions: Array<{ label: string; value: PromptGroupBy }> = [
+  { label: "提示词类型", value: "types" },
+  { label: "主题", value: "topics" },
+  { label: "标签", value: "tags" },
+  { label: "区域", value: "regions" },
+];
+
 const todayLabel = "06 Jul, 2026 2026 年 7 月 6 日";
 
 const initialPromptItems: PromptItem[] = [
@@ -164,21 +186,25 @@ const initialPromptItems: PromptItem[] = [
   },
 ];
 
-function getTopicRows(items: PromptItem[]): TopicAnalysisRow[] {
+function getGroupValues(item: PromptItem, groupBy: PromptGroupBy) {
+  return item[groupBy].length > 0 ? item[groupBy] : ["未设置"];
+}
+
+function getAnalysisRows(items: PromptItem[], groupBy: PromptGroupBy): PromptAnalysisRow[] {
   const groups = new Map<string, PromptItem[]>();
 
   items.forEach((item) => {
-    item.topics.forEach((topic) => {
-      const current = groups.get(topic) ?? [];
+    getGroupValues(item, groupBy).forEach((group) => {
+      const current = groups.get(group) ?? [];
       current.push(item);
-      groups.set(topic, current);
+      groups.set(group, current);
     });
   });
 
-  return Array.from(groups.entries()).map(([topic, rows]) => ({
-    topic,
+  return Array.from(groups.entries()).map(([group, rows]) => ({
+    group,
     total: rows.length,
-    prompts: rows.map((row) => row.text),
+    prompts: rows,
     visibilityRank: "-",
     visibilityScore: rows.some((row) => row.status === "启用") ? "0%" : "-",
     shareOfVoice: rows.some((row) => row.status === "启用") ? "0%" : "-",
@@ -203,27 +229,76 @@ function ToolbarButton({
   );
 }
 
+function GroupBySelect({
+  value,
+  onChange,
+}: {
+  value: PromptGroupBy;
+  onChange: (value: PromptGroupBy) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = promptGroupOptions.find((option) => option.value === value) ?? promptGroupOptions[1];
+
+  return (
+    <div className="relative inline-flex">
+      <button
+        className="flex h-8 items-center gap-1.5 rounded-md border border-border bg-muted/20 px-3 text-left text-xs text-foreground outline-none transition-colors hover:border-muted-foreground/30 hover:bg-muted/50"
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        <span className="text-muted-foreground">按:</span>
+        <span className="font-medium">{selected.label}分组</span>
+        <ChevronDown size={12} className={cn("text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+      {open ? (
+        <div className="absolute left-0 top-[calc(100%+4px)] z-50 w-40 rounded-md border border-border bg-popover p-1 shadow-lg">
+          {promptGroupOptions.map((option) => {
+            const checked = option.value === value;
+            return (
+              <button
+                className="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-muted"
+                key={option.value}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                type="button"
+              >
+                <span>{option.label}</span>
+                {checked ? <Check size={12} className="text-foreground" /> : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function MetricCell({ value }: { value: string | number }) {
   return <span className="font-semibold tabular-nums text-foreground">{value}</span>;
 }
 
 function PromptAnalysisTable({
+  groupBy,
   items,
   onEdit,
 }: {
+  groupBy: PromptGroupBy;
   items: PromptItem[];
   onEdit: (prompt?: PromptItem) => void;
 }) {
-  const topicRows = useMemo(() => getTopicRows(items), [items]);
-  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
+  const groupRows = useMemo(() => getAnalysisRows(items, groupBy), [groupBy, items]);
+  const groupLabel = promptGroupOptions.find((option) => option.value === groupBy)?.label ?? "主题";
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
-  function toggleTopic(topic: string) {
-    setExpandedTopics((current) => {
+  function toggleGroup(group: string) {
+    setExpandedGroups((current) => {
       const next = new Set(current);
-      if (next.has(topic)) {
-        next.delete(topic);
+      if (next.has(group)) {
+        next.delete(group);
       } else {
-        next.add(topic);
+        next.add(group);
       }
       return next;
     });
@@ -234,7 +309,7 @@ function PromptAnalysisTable({
       <div className="scrollbar-none overflow-x-auto">
         <div className="min-w-[1180px]">
           <div className="grid grid-cols-[minmax(340px,1fr)_110px_110px_110px_120px_110px_110px_80px_52px] border-b border-border/60 bg-muted/20 px-4 py-3 text-[11px] font-medium text-muted-foreground">
-            <span>Topic</span>
+            <span>{groupLabel}</span>
             <span>可见度排名</span>
             <span>可见性得分</span>
             <span>声量份额</span>
@@ -244,18 +319,18 @@ function PromptAnalysisTable({
             <span>运行</span>
             <span />
           </div>
-          {topicRows.map((topic) => {
-            const isExpanded = expandedTopics.has(topic.topic);
+          {groupRows.map((topic) => {
+            const isExpanded = expandedGroups.has(topic.group);
 
             return (
-              <div key={topic.topic}>
+              <div key={topic.group}>
                 <div
                   className="grid w-full cursor-pointer grid-cols-[minmax(340px,1fr)_110px_110px_110px_120px_110px_110px_80px_52px] items-center border-b border-border/50 px-4 py-3 text-left text-xs hover:bg-muted/20"
-                  onClick={() => toggleTopic(topic.topic)}
+                  onClick={() => toggleGroup(topic.group)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      toggleTopic(topic.topic);
+                      toggleGroup(topic.group);
                     }
                   }}
                   role="button"
@@ -267,7 +342,7 @@ function PromptAnalysisTable({
                         size={13}
                         className={cn("text-muted-foreground transition-transform", isExpanded ? "rotate-0" : "-rotate-90")}
                       />
-                      <span className="truncate font-semibold text-foreground">{topic.topic}</span>
+                      <span className="truncate font-semibold text-foreground">{topic.group}</span>
                     </div>
                     <p className="m-0 ml-5 mt-0.5 text-[11px] text-muted-foreground">{topic.total} 个提示词</p>
                   </div>
@@ -283,7 +358,7 @@ function PromptAnalysisTable({
                     className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                     onClick={(event) => {
                       event.stopPropagation();
-                      onEdit(items.find((item) => item.topics.includes(topic.topic)));
+                      onEdit(topic.prompts[0]);
                     }}
                     type="button"
                   >
@@ -294,9 +369,9 @@ function PromptAnalysisTable({
                   ? topic.prompts.map((prompt) => (
                       <div
                         className="grid grid-cols-[minmax(340px,1fr)_110px_110px_110px_120px_110px_110px_80px_52px] items-center border-b border-border/40 px-4 py-3 text-xs last:border-b-0 hover:bg-muted/20"
-                        key={prompt}
+                        key={prompt.id}
                       >
-                        <span className="truncate pl-6 text-foreground">{prompt}</span>
+                        <span className="truncate pl-6 text-foreground">{prompt.text}</span>
                         <span className="text-muted-foreground">-</span>
                         <MetricCell value="0%" />
                         <MetricCell value="0%" />
@@ -307,7 +382,7 @@ function PromptAnalysisTable({
                         <button
                           aria-label="编辑提示词"
                           className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                          onClick={() => onEdit(items.find((item) => item.text === prompt) ?? items[0])}
+                          onClick={() => onEdit(prompt)}
                           type="button"
                         >
                           <Edit3 size={14} />
@@ -339,9 +414,21 @@ function MultiSelect({
   compact?: boolean;
   variant?: "tag" | "field";
 }) {
-  const [open, setOpen] = useState(false);
+  const multiSelectId = useId();
+  const group = useContext(MultiSelectGroupContext);
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = group ? group.openId === multiSelectId : localOpen;
   const firstSelected = values[0];
   const selectedLabels = values.length > 0 ? values.join(", ") : label;
+
+  function setOpen(nextOpen: boolean) {
+    if (group) {
+      group.setOpenId(nextOpen ? multiSelectId : null);
+      return;
+    }
+
+    setLocalOpen(nextOpen);
+  }
 
   function toggleValue(value: string) {
     if (values.includes(value)) {
@@ -362,7 +449,7 @@ function MultiSelect({
           compact ? "min-h-8 px-2" : "min-h-8 px-2.5",
           open && "border-muted-foreground/40 bg-muted/50"
         )}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => setOpen(!open)}
         type="button"
       >
         {variant === "tag" ? (
@@ -709,55 +796,57 @@ function GeneratePromptModal({
   }
 
   return (
-    <div aria-label="生成提示词" aria-modal="true" className="fixed inset-0 z-[60] grid place-items-center bg-black/35 p-4" role="dialog">
-      <section className="w-full max-w-[620px] rounded-lg border border-border bg-card shadow-2xl">
-        <header className="flex items-center justify-between border-b border-border px-5 py-4">
-          <div>
-            <h3 className="m-0 text-base font-semibold">生成提示词</h3>
-            <p className="m-0 mt-1 text-xs text-muted-foreground">选择主题、区域、语言和平台，生成后会追加到可编辑表格。</p>
+    <MultiSelectGroupProvider>
+      <div aria-label="生成提示词" aria-modal="true" className="fixed inset-0 z-[60] grid place-items-center bg-black/35 p-4" role="dialog">
+        <section className="w-full max-w-[620px] rounded-lg border border-border bg-card shadow-2xl">
+          <header className="flex items-center justify-between border-b border-border px-5 py-4">
+            <div>
+              <h3 className="m-0 text-base font-semibold">生成提示词</h3>
+              <p className="m-0 mt-1 text-xs text-muted-foreground">选择主题、区域、语言和平台，生成后会追加到可编辑表格。</p>
+            </div>
+            <button aria-label="关闭生成弹窗" className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" onClick={onClose} type="button">
+              <X size={17} />
+            </button>
+          </header>
+          <div className="grid gap-4 px-5 py-5">
+            <MultiSelect label="选择主题" options={topicOptions} values={topics} onChange={setTopics} variant="field" />
+            <label className="grid gap-2 text-xs font-medium">
+              每个主题的提示词数量
+              <input
+                className="h-9 rounded-md border border-border bg-card px-3 text-sm outline-none focus:border-primary/60"
+                max={50}
+                min={1}
+                type="number"
+                value={count}
+                onChange={(event) => setCount(Number(event.target.value))}
+              />
+            </label>
+            <div className="grid gap-3 md:grid-cols-3">
+              <MultiSelect label="区域" options={regionOptions} values={regions} onChange={setRegions} variant="field" />
+              <MultiSelect label="语言" options={languageOptions} values={languages} onChange={setLanguages} variant="field" />
+              <MultiSelect label="平台" options={platformOptions} values={platforms} onChange={setPlatforms} variant="field" />
+            </div>
+            <label className="grid gap-2 text-xs font-medium">
+              附加说明
+              <textarea
+                className="min-h-[92px] rounded-md border border-border bg-card px-3 py-2 text-sm leading-6 outline-none focus:border-primary/60"
+                placeholder="输入任何用于生成提示词的附加说明..."
+                value={instructions}
+                onChange={(event) => setInstructions(event.target.value)}
+              />
+            </label>
           </div>
-          <button aria-label="关闭生成弹窗" className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" onClick={onClose} type="button">
-            <X size={17} />
-          </button>
-        </header>
-        <div className="grid gap-4 px-5 py-5">
-          <MultiSelect label="选择主题" options={topicOptions} values={topics} onChange={setTopics} variant="field" />
-          <label className="grid gap-2 text-xs font-medium">
-            每个主题的提示词数量
-            <input
-              className="h-9 rounded-md border border-border bg-card px-3 text-sm outline-none focus:border-primary/60"
-              max={50}
-              min={1}
-              type="number"
-              value={count}
-              onChange={(event) => setCount(Number(event.target.value))}
-            />
-          </label>
-          <div className="grid gap-3 md:grid-cols-3">
-            <MultiSelect label="区域" options={regionOptions} values={regions} onChange={setRegions} variant="field" />
-            <MultiSelect label="语言" options={languageOptions} values={languages} onChange={setLanguages} variant="field" />
-            <MultiSelect label="平台" options={platformOptions} values={platforms} onChange={setPlatforms} variant="field" />
-          </div>
-          <label className="grid gap-2 text-xs font-medium">
-            附加说明
-            <textarea
-              className="min-h-[92px] rounded-md border border-border bg-card px-3 py-2 text-sm leading-6 outline-none focus:border-primary/60"
-              placeholder="输入任何用于生成提示词的附加说明..."
-              value={instructions}
-              onChange={(event) => setInstructions(event.target.value)}
-            />
-          </label>
-        </div>
-        <footer className="flex justify-end gap-2 border-t border-border px-5 py-4">
-          <Button size="sm" type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button className="rounded-md bg-foreground text-background hover:bg-foreground/90" size="sm" type="button" onClick={generateRows}>
-            生成
-          </Button>
-        </footer>
-      </section>
-    </div>
+          <footer className="flex justify-end gap-2 border-t border-border px-5 py-4">
+            <Button size="sm" type="button" variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button className="rounded-md bg-foreground text-background hover:bg-foreground/90" size="sm" type="button" onClick={generateRows}>
+              生成
+            </Button>
+          </footer>
+        </section>
+      </div>
+    </MultiSelectGroupProvider>
   );
 }
 
@@ -861,129 +950,129 @@ function PromptDesignerDrawer({
   onCsvUpload: (file: File) => void;
 }) {
   const uploadInputRef = useRef<HTMLInputElement>(null);
-  const activeCount = items.filter((item) => item.status === "启用").length;
 
   return (
-    <div aria-label="提示词设计器" aria-modal="true" className="fixed inset-0 z-50 animate-chat-drawer-overlay" role="dialog">
-      <button className="absolute inset-0 cursor-default bg-black/35" onClick={onClose} type="button" aria-label="关闭提示词设计器背景" />
-      <aside className="absolute right-0 top-0 flex h-full w-full max-w-[1280px] animate-chat-drawer-content flex-col border-l border-border bg-card shadow-2xl">
-        <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
-          <div>
-            <h2 className="m-0 text-xl font-semibold tracking-tight">提示词设计器</h2>
-            <p className="m-0 mt-2 text-sm text-muted-foreground">管理提示词状态、维度和内容；表格内可直接编辑，CSV 可批量新增或更新。</p>
-          </div>
-          <button aria-label="关闭" className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" onClick={onClose} type="button">
-            <X size={18} />
-          </button>
-        </header>
-
-        <div className="flex items-center justify-between border-b border-border/60 px-6 py-3">
-          <div className="flex items-center gap-4 text-sm">
-            {(["启用", "停用"] as PromptStatus[]).map((status) => (
-              <button
-                className={cn("pb-2", activeStatus === status ? "border-b-2 border-foreground font-medium" : "text-muted-foreground hover:text-foreground")}
-                key={status}
-                onClick={() => onStatusChange(status)}
-                type="button"
-              >
-                {status}
-              </button>
-            ))}
-          </div>
-          <span className="text-xs text-muted-foreground">{activeCount} / 50 个启用提示词</span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 border-b border-border/60 px-6 py-3">
-          <MultiSelect label="提示词类型" options={promptTypeOptions} values={filters.types} onChange={(types) => onFiltersChange({ ...filters, types })} />
-          <MultiSelect label="主题" options={topicOptions} values={filters.topics} onChange={(topics) => onFiltersChange({ ...filters, topics })} />
-          <MultiSelect label="语言" options={languageOptions} values={filters.languages} onChange={(languages) => onFiltersChange({ ...filters, languages })} />
-          <MultiSelect label="标签" options={tagOptions} values={filters.tags} onChange={(tags) => onFiltersChange({ ...filters, tags })} />
-          <MultiSelect label="区域" options={regionOptions} values={filters.regions} onChange={(regions) => onFiltersChange({ ...filters, regions })} />
-          <MultiSelect label="平台" options={platformOptions} values={filters.platforms} onChange={(platforms) => onFiltersChange({ ...filters, platforms })} />
-        </div>
-
-        <div className="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)]">
-          <DesignerTopicList items={items} selectedId={prompt.id} onSelect={onSelect} />
-          <section className="min-w-0 overflow-auto">
-            <div className="flex flex-col gap-3 border-b border-border/60 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-              <label className="relative block w-full max-w-md">
-                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
-                <input
-                  className="h-9 w-full rounded-md border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary/60"
-                  placeholder="Search prompts..."
-                  type="search"
-                  value={search}
-                  onChange={(event) => onSearchChange(event.target.value)}
-                />
-              </label>
-              <div className="flex flex-wrap gap-2">
-                <ToolbarButton>
-                  <Download size={13} />
-                  导出 {items.length} 提示词
-                </ToolbarButton>
-                <ToolbarButton onClick={onGenerateClick}>
-                  <Sparkles size={13} />
-                  生成
-                </ToolbarButton>
-                <ToolbarButton onClick={() => uploadInputRef.current?.click()}>
-                  <Upload size={13} />
-                  批量上传
-                </ToolbarButton>
-                <input
-                  accept=".csv,text/csv"
-                  className="hidden"
-                  ref={uploadInputRef}
-                  type="file"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) {
-                      onCsvUpload(file);
-                    }
-                    event.currentTarget.value = "";
-                  }}
-                />
-                <ToolbarButton onClick={onAddPrompt}>
-                  <Plus size={13} />
-                  添加提示词
-                </ToolbarButton>
-              </div>
+    <MultiSelectGroupProvider>
+      <div aria-label="提示词设计器" aria-modal="true" className="fixed inset-0 z-50 animate-chat-drawer-overlay" role="dialog">
+        <button className="absolute inset-0 cursor-default bg-black/35" onClick={onClose} type="button" aria-label="关闭提示词设计器背景" />
+        <aside className="absolute right-0 top-0 flex h-full w-full max-w-[1280px] animate-chat-drawer-content flex-col border-l border-border bg-card shadow-2xl">
+          <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+            <div>
+              <h2 className="m-0 text-xl font-semibold tracking-tight">提示词设计器</h2>
+              <p className="m-0 mt-2 text-sm text-muted-foreground">管理提示词状态、维度和内容；表格内可直接编辑，CSV 可批量新增或更新。</p>
             </div>
+            <button aria-label="关闭" className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" onClick={onClose} type="button">
+              <X size={18} />
+            </button>
+          </header>
 
-            <EditablePromptTable
-              activeId={prompt.id}
-              items={items}
-              onDelete={onDeletePrompt}
-              onSelect={onSelect}
-              onUpdate={onUpdatePrompt}
-            />
-
-            <div className="grid gap-4 px-6 py-5">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <MoreHorizontal size={14} />
-                当前选中提示词详情
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium">提示词内容</label>
-                <textarea
-                  className="min-h-[96px] w-full rounded-lg border border-border bg-card px-3 py-2 text-sm leading-6 outline-none focus:border-primary/60"
-                  value={prompt.text}
-                  onChange={(event) => onUpdatePrompt(prompt.id, { text: event.target.value, updated: todayLabel })}
-                />
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium">中文说明</label>
-                <textarea
-                  className="min-h-[72px] w-full rounded-lg border border-border bg-card px-3 py-2 text-sm leading-6 outline-none focus:border-primary/60"
-                  placeholder="为团队补充提示词说明"
-                  value={prompt.translation}
-                  onChange={(event) => onUpdatePrompt(prompt.id, { translation: event.target.value, updated: todayLabel })}
-                />
-              </div>
+          <div className="flex items-center border-b border-border/60 px-6 py-3">
+            <div className="flex items-center gap-4 text-sm">
+              {(["启用", "停用"] as PromptStatus[]).map((status) => (
+                <button
+                  className={cn("pb-2", activeStatus === status ? "border-b-2 border-foreground font-medium" : "text-muted-foreground hover:text-foreground")}
+                  key={status}
+                  onClick={() => onStatusChange(status)}
+                  type="button"
+                >
+                  {status}
+                </button>
+              ))}
             </div>
-          </section>
-        </div>
-      </aside>
-    </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 border-b border-border/60 px-6 py-3">
+            <MultiSelect label="提示词类型" options={promptTypeOptions} values={filters.types} onChange={(types) => onFiltersChange({ ...filters, types })} />
+            <MultiSelect label="主题" options={topicOptions} values={filters.topics} onChange={(topics) => onFiltersChange({ ...filters, topics })} />
+            <MultiSelect label="语言" options={languageOptions} values={filters.languages} onChange={(languages) => onFiltersChange({ ...filters, languages })} />
+            <MultiSelect label="标签" options={tagOptions} values={filters.tags} onChange={(tags) => onFiltersChange({ ...filters, tags })} />
+            <MultiSelect label="区域" options={regionOptions} values={filters.regions} onChange={(regions) => onFiltersChange({ ...filters, regions })} />
+            <MultiSelect label="平台" options={platformOptions} values={filters.platforms} onChange={(platforms) => onFiltersChange({ ...filters, platforms })} />
+          </div>
+
+          <div className="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)]">
+            <DesignerTopicList items={items} selectedId={prompt.id} onSelect={onSelect} />
+            <section className="min-w-0 overflow-auto">
+              <div className="flex flex-col gap-3 border-b border-border/60 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+                <label className="relative block w-full max-w-md">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+                  <input
+                    className="h-9 w-full rounded-md border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary/60"
+                    placeholder="Search prompts..."
+                    type="search"
+                    value={search}
+                    onChange={(event) => onSearchChange(event.target.value)}
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <ToolbarButton>
+                    <Download size={13} />
+                    导出 {items.length} 提示词
+                  </ToolbarButton>
+                  <ToolbarButton onClick={onGenerateClick}>
+                    <Sparkles size={13} />
+                    生成
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => uploadInputRef.current?.click()}>
+                    <Upload size={13} />
+                    批量上传
+                  </ToolbarButton>
+                  <input
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    ref={uploadInputRef}
+                    type="file"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        onCsvUpload(file);
+                      }
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                  <ToolbarButton onClick={onAddPrompt}>
+                    <Plus size={13} />
+                    添加提示词
+                  </ToolbarButton>
+                </div>
+              </div>
+
+              <EditablePromptTable
+                activeId={prompt.id}
+                items={items}
+                onDelete={onDeletePrompt}
+                onSelect={onSelect}
+                onUpdate={onUpdatePrompt}
+              />
+
+              <div className="grid gap-4 px-6 py-5">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <MoreHorizontal size={14} />
+                  当前选中提示词详情
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">提示词内容</label>
+                  <textarea
+                    className="min-h-[96px] w-full rounded-lg border border-border bg-card px-3 py-2 text-sm leading-6 outline-none focus:border-primary/60"
+                    value={prompt.text}
+                    onChange={(event) => onUpdatePrompt(prompt.id, { text: event.target.value, updated: todayLabel })}
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">中文说明</label>
+                  <textarea
+                    className="min-h-[72px] w-full rounded-lg border border-border bg-card px-3 py-2 text-sm leading-6 outline-none focus:border-primary/60"
+                    placeholder="为团队补充提示词说明"
+                    value={prompt.translation}
+                    onChange={(event) => onUpdatePrompt(prompt.id, { translation: event.target.value, updated: todayLabel })}
+                  />
+                </div>
+              </div>
+            </section>
+          </div>
+        </aside>
+      </div>
+    </MultiSelectGroupProvider>
   );
 }
 
@@ -991,6 +1080,7 @@ export function PromptsPage({ notify }: PageProps) {
   const [prompts, setPrompts] = useState<PromptItem[]>(initialPromptItems);
   const [activePromptId, setActivePromptId] = useState(initialPromptItems[0].id);
   const [activeStatus, setActiveStatus] = useState<PromptStatus>("启用");
+  const [groupBy, setGroupBy] = useState<PromptGroupBy>("topics");
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<PromptFilters>({
     types: [],
@@ -1004,25 +1094,30 @@ export function PromptsPage({ notify }: PageProps) {
   const [generateOpen, setGenerateOpen] = useState(false);
 
   const activePrompt = prompts.find((item) => item.id === activePromptId) ?? prompts[0];
-  const filteredPrompts = prompts.filter((item) => {
+  function matchesSearch(item: PromptItem) {
     const query = search.trim().toLowerCase();
-    const matchesStatus = item.status === activeStatus;
-    const matchesSearch =
+    return (
       query.length === 0 ||
       [item.text, item.translation, ...item.topics, ...item.tags, ...item.languages, ...item.regions, ...item.platforms]
         .join(" ")
         .toLowerCase()
-        .includes(query);
-    const matchesFilters =
+        .includes(query)
+    );
+  }
+
+  function matchesFilters(item: PromptItem) {
+    return (
       (filters.types.length === 0 || filters.types.some((filter) => item.types.includes(filter as PromptType))) &&
       (filters.topics.length === 0 || filters.topics.some((filter) => item.topics.includes(filter))) &&
       (filters.languages.length === 0 || filters.languages.some((filter) => item.languages.includes(filter))) &&
       (filters.tags.length === 0 || filters.tags.some((filter) => item.tags.includes(filter))) &&
       (filters.regions.length === 0 || filters.regions.some((filter) => item.regions.includes(filter))) &&
-      (filters.platforms.length === 0 || filters.platforms.some((filter) => item.platforms.includes(filter)));
+      (filters.platforms.length === 0 || filters.platforms.some((filter) => item.platforms.includes(filter)))
+    );
+  }
 
-    return matchesStatus && matchesSearch && matchesFilters;
-  });
+  const analysisPrompts = prompts.filter(matchesSearch);
+  const filteredPrompts = prompts.filter((item) => item.status === activeStatus && matchesSearch(item) && matchesFilters(item));
 
   function openDesigner(prompt = prompts[0]) {
     setActivePromptId(prompt.id);
@@ -1103,9 +1198,29 @@ export function PromptsPage({ notify }: PageProps) {
   return (
     <>
       <div className="grid gap-4">
-        <section className="flex justify-end border-b border-border/70 pb-4">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">{prompts.filter((item) => item.status === "启用").length} / 50 个提示词</span>
+        <section className="flex flex-col gap-3 border-b border-border/70 pb-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <GroupBySelect value={groupBy} onChange={setGroupBy} />
+            <label className="relative block w-full sm:w-56">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={13} />
+              <input
+                className="h-8 w-full rounded-md border border-border bg-card pl-8 pr-3 text-xs outline-none focus:border-primary/60"
+                placeholder="搜索 Topic"
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
+          </div>
+          <div className="flex flex-wrap items-center justify-start gap-2 xl:justify-end">
+            <ToolbarButton>
+              自定义列
+              <ChevronDown size={12} />
+            </ToolbarButton>
+            <ToolbarButton>
+              <Download size={13} />
+              下载
+            </ToolbarButton>
             <Button className="gap-2 rounded-md bg-foreground text-background hover:bg-foreground/90" size="sm" type="button" onClick={() => openDesigner()}>
               编辑提示词
               <ExternalLink size={13} />
@@ -1113,27 +1228,7 @@ export function PromptsPage({ notify }: PageProps) {
           </div>
         </section>
 
-        <section className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
-          <div className="flex flex-wrap items-center gap-2">
-            <ToolbarButton>
-              按: Topic分组
-              <ChevronDown size={12} />
-            </ToolbarButton>
-            <ToolbarButton>
-              自定义列
-              <ChevronDown size={12} />
-            </ToolbarButton>
-            <ToolbarButton>
-              <Download size={13} />
-            </ToolbarButton>
-            <label className="relative block w-52">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={13} />
-              <input className="h-8 w-full rounded-md border border-border bg-card pl-8 pr-3 text-xs outline-none focus:border-primary/60" placeholder="搜索 Topic" type="search" />
-            </label>
-          </div>
-        </section>
-
-        <PromptAnalysisTable items={prompts} onEdit={openDesigner} />
+        <PromptAnalysisTable groupBy={groupBy} items={analysisPrompts} onEdit={openDesigner} />
       </div>
 
       {designerOpen && activePrompt ? (
