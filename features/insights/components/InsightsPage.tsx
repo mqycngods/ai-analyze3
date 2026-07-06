@@ -7,9 +7,9 @@ import {
   performanceBuckets,
   topRankingRows,
   visibilityTrend,
-  type InsightTrendPoint,
   type TopRankingRow,
 } from "@/features/insights/data/insights.mock";
+import { MultiLineTrendChart, VerticalBarChart } from "@/features/shared/components/charts";
 import { cn } from "@/lib/utils";
 import type { GlobalFilterState } from "@/types/analytics";
 
@@ -18,11 +18,9 @@ type PageProps = {
   notify?: (message: string) => void;
 };
 
-type TrendSeries = "visibility" | "domains";
-
-const trendSeries: { key: TrendSeries; label: string; color: string }[] = [
-  { key: "visibility", label: "可见性", color: "hsl(var(--primary))" },
-  { key: "domains", label: "你的域名", color: "#94A3B8" },
+const trendSeries = [
+  { key: "visibility", label: "可见性", color: "#3366FF", area: true },
+  { key: "domains", label: "你的域名", color: "#94A3B8", area: false },
 ];
 
 function SectionHeading({ title, description }: { title: string; description: string }) {
@@ -76,85 +74,6 @@ function SummaryStrip() {
   );
 }
 
-function TrendChart({ data }: { data: InsightTrendPoint[] }) {
-  const width = 960;
-  const height = 300;
-  const padX = 44;
-  const padY = 26;
-  const plotWidth = width - padX * 2;
-  const plotHeight = height - padY * 2;
-  const yTicks = [100, 75, 50, 25, 0];
-
-  function pointsFor(key: TrendSeries) {
-    return data.map((point, index) => {
-      const x = padX + (index / Math.max(data.length - 1, 1)) * plotWidth;
-      const y = padY + (1 - point[key] / 100) * plotHeight;
-      return { x, y, value: point[key] };
-    });
-  }
-
-  function pathFor(key: TrendSeries) {
-    return pointsFor(key)
-      .map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`)
-      .join(" ");
-  }
-
-  return (
-    <div className="w-full overflow-hidden">
-      <svg aria-label="可见性趋势图" className="h-[260px] w-full" preserveAspectRatio="none" viewBox={`0 0 ${width} ${height}`}>
-        {yTicks.map((tick) => {
-          const y = padY + (1 - tick / 100) * plotHeight;
-          return (
-            <g key={tick}>
-              <line
-                stroke="hsl(var(--border))"
-                strokeDasharray="4 6"
-                strokeOpacity="0.85"
-                strokeWidth="1"
-                x1={padX}
-                x2={width - padX}
-                y1={y}
-                y2={y}
-              />
-              <text fill="hsl(var(--muted-foreground))" fontSize="11" x="0" y={y + 4}>
-                {tick}
-              </text>
-            </g>
-          );
-        })}
-        {trendSeries.map((series) => (
-          <path
-            d={pathFor(series.key)}
-            fill="none"
-            key={series.key}
-            stroke={series.color}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={series.key === "visibility" ? "2.5" : "2"}
-          />
-        ))}
-        {trendSeries.map((series) =>
-          pointsFor(series.key).map((point, index) => (
-            <circle
-              cx={point.x}
-              cy={point.y}
-              fill="hsl(var(--card))"
-              key={`${series.key}-${index}`}
-              r={series.key === "visibility" ? 3.6 : 3}
-              stroke={series.color}
-              strokeWidth="2"
-            />
-          ))
-        )}
-      </svg>
-      <div className="flex justify-between px-10 text-[10px] text-muted-foreground">
-        <span>{data[0]?.date}</span>
-        <span>{data[data.length - 1]?.date}</span>
-      </div>
-    </div>
-  );
-}
-
 function filterTrendByDate<T>(items: T[], dateRange: GlobalFilterState["dateRange"]) {
   const rangeSize = {
     "7d": 7,
@@ -177,47 +96,27 @@ function filterRankingRows(rows: TopRankingRow[], filters: GlobalFilterState) {
   });
 }
 
-function VisibilityPanel({ data, notify }: { data: InsightTrendPoint[]; notify?: (message: string) => void }) {
+function VisibilityPanel({ data, notify }: { data: Array<{ date: string; visibility: number; domains: number }>; notify?: (message: string) => void }) {
   return (
     <Card className="rounded-lg border border-border/70 bg-card p-0 shadow-none">
       <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-4">
         <SectionHeading description="按日期追踪品牌在 AI 回答中的可见性，以及自有域名被引用的覆盖情况。" title="可见性" />
         <HeaderAction notify={notify} />
       </div>
-      <div className="mt-3 border-b border-border/70 px-5">
-        <div className="scrollbar-none flex items-center gap-6 overflow-x-auto">
-          {trendSeries.map((series, index) => (
-            <button
-              aria-current={index === 0 ? "page" : undefined}
-              className={cn(
-                "relative h-10 shrink-0 text-sm font-medium transition-colors",
-                index === 0 ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
-              key={series.key}
-              type="button"
-            >
-              <span className="mr-2 inline-block h-2 w-2 rounded-full" style={{ background: series.color }} />
-              {series.label}
-              <span
-                className={cn(
-                  "absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary transition-opacity",
-                  index === 0 ? "opacity-100" : "opacity-0"
-                )}
-              />
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="px-4 pb-3 pt-4">
-        <TrendChart data={data} />
+      <div className="px-4 pb-4 pt-6">
+        <MultiLineTrendChart
+          data={data}
+          series={trendSeries}
+          max={100}
+          min={0}
+          height={260}
+        />
       </div>
     </Card>
   );
 }
 
 function PerformanceMatrix() {
-  const maxCount = Math.max(...performanceBuckets.map((bucket) => bucket.count));
-
   return (
     <Card className="rounded-lg border border-border/70 bg-card p-0 shadow-none">
       <div className="flex items-start justify-between gap-3 px-5 pt-4">
@@ -230,30 +129,16 @@ function PerformanceMatrix() {
           <MoreHorizontal size={14} />
         </button>
       </div>
-      <div className="px-5 pb-5 pt-6">
-        <div className="grid min-h-[220px] grid-cols-6 items-end gap-2">
-          {performanceBuckets.map((bucket) => (
-            <div className="flex min-w-0 flex-col items-center gap-2" key={bucket.label}>
-              <span className="text-xs font-semibold tabular-nums">{bucket.count}</span>
-              <div
-                className="w-full rounded-t-md transition-all"
-                style={{
-                  background: bucket.color,
-                  height: `${Math.max(18, (bucket.count / maxCount) * 150)}px`,
-                }}
-              />
-              <span className="truncate text-[10px] text-muted-foreground">{bucket.label}</span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-border/50 pt-3">
-          {performanceBuckets.map((bucket) => (
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground" key={bucket.label}>
-              <span className="h-2 w-2 rounded-[2px]" style={{ background: bucket.color }} />
-              {bucket.label}
-            </span>
-          ))}
-        </div>
+      <div className="px-5 pb-5 pt-4">
+        <VerticalBarChart
+          data={performanceBuckets.map((bucket) => ({
+            label: bucket.label,
+            value: bucket.count,
+            color: bucket.color,
+          }))}
+          unit=""
+          height={320}
+        />
       </div>
     </Card>
   );

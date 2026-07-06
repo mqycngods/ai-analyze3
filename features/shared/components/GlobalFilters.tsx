@@ -13,6 +13,8 @@ import {
 import { cn } from "@/lib/utils";
 import type { GlobalDateRange, GlobalFilterOption, GlobalFilterState } from "@/types/analytics";
 
+const STUCK_OFFSET = 1;
+
 type FilterKey = "date" | "brands" | "models" | "topics";
 
 type GlobalFiltersProps = {
@@ -39,6 +41,7 @@ function isDefaultFilters(value: GlobalFilterState) {
 
 export function GlobalFilters({ className, value, onChange }: GlobalFiltersProps) {
   const [openKey, setOpenKey] = useState<FilterKey | null>(null);
+  const [isStuck, setIsStuck] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -50,6 +53,18 @@ export function GlobalFilters({ className, value, onChange }: GlobalFiltersProps
 
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
+
+  useEffect(() => {
+    function updateStickyState() {
+      const top = rootRef.current?.getBoundingClientRect().top ?? 0;
+      setIsStuck(top <= STUCK_OFFSET);
+    }
+
+    updateStickyState();
+    window.addEventListener("scroll", updateStickyState, { passive: true });
+
+    return () => window.removeEventListener("scroll", updateStickyState);
   }, []);
 
   const selectedCount = value.brands.length + value.models.length + value.topics.length;
@@ -121,7 +136,8 @@ export function GlobalFilters({ className, value, onChange }: GlobalFiltersProps
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-none lg:flex-row lg:items-center lg:justify-between",
+        "sticky top-0 z-30 flex flex-col gap-3 border border-border/70 bg-card px-4 py-3 shadow-none transition-[border-radius,box-shadow] duration-200 lg:flex-row lg:items-center lg:justify-between",
+        isStuck ? "rounded-md shadow-sm" : "rounded-lg",
         className
       )}
       ref={rootRef}

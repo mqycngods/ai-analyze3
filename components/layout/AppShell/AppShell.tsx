@@ -34,21 +34,21 @@ const navIcons: Record<NavId, LucideIcon> = {
 
 export function AppShell({ activePage, children, onNavigate }: AppShellProps) {
   return (
-    <div className="min-h-screen grid grid-cols-[240px_minmax(0,1fr)] bg-background text-foreground">
+    <div className="grid min-h-screen grid-cols-[240px_minmax(0,1fr)] bg-background text-foreground">
       <aside
-        className="sticky top-0 h-screen flex flex-col gap-6 p-6 bg-background border-r border-border/50"
+        className="sticky top-0 flex h-screen flex-col gap-6 border-r border-border/50 bg-background p-6"
         aria-label="主导航"
       >
-        <div className="flex items-center gap-3 min-h-[48px]">
+        <div className="flex min-h-[48px] items-center gap-3">
           <div
-            className="w-8 h-8 grid place-items-center rounded-md bg-primary text-primary-foreground text-xs font-bold"
+            className="grid h-8 w-8 place-items-center rounded-md bg-primary text-xs font-bold text-primary-foreground"
             aria-hidden="true"
           >
             CH
           </div>
           <div>
             <strong className="block text-sm font-semibold tracking-tight">CreativeHit</strong>
-            <span className="block text-xs text-muted-foreground mt-0.5">AI 可见性分析平台</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">AI 可见性分析平台</span>
           </div>
         </div>
 
@@ -62,9 +62,9 @@ export function AppShell({ activePage, children, onNavigate }: AppShellProps) {
                 <button
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-200",
+                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all duration-200",
                     isActive
-                      ? "bg-muted text-foreground font-medium"
+                      ? "bg-muted font-medium text-foreground"
                       : "bg-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   )}
                   key={item.id}
@@ -88,7 +88,7 @@ export function AppShell({ activePage, children, onNavigate }: AppShellProps) {
       </aside>
 
       <main className="min-w-0 bg-secondary/30">
-        <section className="p-8 mx-auto" tabIndex={-1}>
+        <section className="mx-auto px-8 pb-6 pt-6" tabIndex={-1}>
           {children}
         </section>
       </main>

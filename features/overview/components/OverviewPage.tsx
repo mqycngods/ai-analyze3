@@ -17,11 +17,14 @@ import { Button, Card } from "@/ui";
 import {
   averagePositionTrend,
   rankingRows,
+  sentimentRows,
+  sentimentTrend,
   shareOfVoice,
   shareRows,
   visibilityRows,
   visibilityTrend,
 } from "@/features/overview/data/overview.mock";
+import { DonutChart, HorizontalBarChart, LineTrendChart } from "@/features/shared/components/charts";
 import type { BrandMetric, GlobalFilterState, ShareOfVoiceItem } from "@/types/analytics";
 import type { NavId } from "@/types";
 import { cn } from "@/lib/utils";
@@ -30,11 +33,6 @@ type PageProps = {
   filters: GlobalFilterState;
   navigate?: (page: NavId) => void;
   notify?: (message: string) => void;
-};
-
-type TrendPoint = {
-  date: string;
-  value: number;
 };
 
 type ChartPanelProps = {
@@ -49,7 +47,7 @@ type RankingTableProps = {
   value: string;
   valueLabel: string;
   rows: BrandMetric[];
-  mode: "score" | "share" | "rank";
+  mode: "score" | "share" | "rank" | "sentiment";
   selectedBrand?: string;
   onExpand?: () => void;
 };
@@ -403,120 +401,11 @@ function ChartPanel({ title, value, children, legend }: ChartPanelProps) {
   );
 }
 
-function TrendChart({
-  data,
-  max,
-  min,
-  unit = "%",
-  invert = false,
-}: {
-  data: TrendPoint[];
-  max: number;
-  min: number;
-  unit?: string;
-  invert?: boolean;
-}) {
-  const width = 720;
-  const height = 250;
-  const padX = 40;
-  const padY = 24;
-  const range = max - min || 1;
-  const points = data.map((point, index) => {
-    const x = padX + (index / (data.length - 1)) * (width - padX * 2);
-    const normal = (point.value - min) / range;
-    const y = padY + (invert ? normal : 1 - normal) * (height - padY * 2);
-    return { ...point, x, y };
-  });
-  const path = points.map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`).join(" ");
-  const yTicks = [max, (max + min) / 2, min];
-
-  return (
-    <div className="w-full overflow-hidden">
-      <svg aria-label="趋势折线图" className="h-[168px] w-full" preserveAspectRatio="none" viewBox={`0 0 ${width} ${height}`}>
-        {yTicks.map((tick, index) => {
-          const y = padY + index * ((height - padY * 2) / (yTicks.length - 1));
-          return (
-            <g key={tick}>
-              <line
-                stroke="hsl(var(--border))"
-                strokeDasharray="5 6"
-                strokeOpacity="0.8"
-                strokeWidth="1"
-                x1={padX}
-                x2={width - padX}
-                y1={y}
-                y2={y}
-              />
-              <text fill="hsl(var(--muted-foreground))" fontSize="10" x="0" y={y + 3}>
-                {Number.isInteger(tick) ? tick : tick.toFixed(1)}
-                {unit}
-              </text>
-            </g>
-          );
-        })}
-        <path d={path} fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.25" />
-      </svg>
-      <div className="flex justify-between px-8 text-[10px] text-muted-foreground">
-        <span>{data[0]?.date}</span>
-        <span>{data[data.length - 1]?.date}</span>
-      </div>
-    </div>
-  );
-}
-
-function SharePie({ data }: { data: ShareOfVoiceItem[] }) {
-  const size = 178;
-  const radius = 58;
-  const stroke = 12;
-  const circumference = 2 * Math.PI * radius;
-  const total = data.reduce((sum, item) => sum + item.value, 0);
-  let offset = 0;
-
-  const segments = data.map((item) => {
-    const length = (item.value / total) * circumference;
-    const segment = {
-      ...item,
-      dashArray: `${length} ${circumference - length}`,
-      dashOffset: -offset,
-    };
-    offset += length;
-    return segment;
-  });
-
-  return (
-    <div className="flex h-[168px] items-center justify-center">
-      <svg aria-label="声量份额饼图" className="-rotate-90" height={size} viewBox={`0 0 ${size} ${size}`} width={size}>
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          fill="none"
-          r={radius}
-          stroke="hsl(var(--muted))"
-          strokeWidth={stroke}
-        />
-        {segments.map((segment) => (
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            fill="none"
-            key={segment.name}
-            r={radius}
-            stroke={segment.color}
-            strokeDasharray={segment.dashArray}
-            strokeDashoffset={segment.dashOffset}
-            strokeLinecap="round"
-            strokeWidth={stroke}
-          />
-        ))}
-      </svg>
-    </div>
-  );
-}
-
 function RankingTable({ title, value, valueLabel, rows, mode, selectedBrand = "Midjourney", onExpand }: RankingTableProps) {
   function getValue(row: BrandMetric) {
     if (mode === "rank") return row.position.toString();
     if (mode === "share") return `${row.sov}%`;
+    if (mode === "sentiment") return `${row.sentiment}%`;
     return `${row.score}%`;
   }
 
@@ -645,7 +534,7 @@ function VisibilityContent({ filters, navigate }: { filters: GlobalFilterState; 
         title="可见度得分"
       >
         <ChartPanel legend={visibilityLegend} title="可见性得分" value="100%">
-          <TrendChart data={trendData} max={100} min={0} />
+          <LineTrendChart data={trendData} max={100} min={0} />
         </ChartPanel>
         <RankingTable
           mode="score"
@@ -663,7 +552,7 @@ function VisibilityContent({ filters, navigate }: { filters: GlobalFilterState; 
         title="声量份额"
       >
         <ChartPanel legend={shareLegend} title="声量份额" value="7.7%">
-          <SharePie data={filteredShareOfVoice} />
+          <DonutChart data={filteredShareOfVoice} centerLabel="7.7%" />
         </ChartPanel>
         <RankingTable
           mode="share"
@@ -681,7 +570,7 @@ function VisibilityContent({ filters, navigate }: { filters: GlobalFilterState; 
         title="平均排名"
       >
         <ChartPanel legend={visibilityLegend} title="平均排名" value="3.5">
-          <TrendChart data={averageTrendData} max={4.0} min={3.0} unit="" />
+          <LineTrendChart data={averageTrendData} max={4.0} min={3.0} unit="" invert />
         </ChartPanel>
         <RankingTable
           mode="rank"
@@ -694,6 +583,33 @@ function VisibilityContent({ filters, navigate }: { filters: GlobalFilterState; 
         />
       </AnalysisBlock>
     </>
+  );
+}
+
+function SentimentContent({ filters, navigate }: { filters: GlobalFilterState; navigate?: (page: NavId) => void }) {
+  const filteredSentimentRows = filterBrandRows(sentimentRows, filters.brands);
+  const selectedBrand = filters.brands[0] ?? "Midjourney";
+  const trendData = filterTrendByDate(sentimentTrend, filters.dateRange);
+  const sentimentLegend = [
+    { label: "当前周期", color: "hsl(var(--primary))" },
+    { label: "竞品对比", color: "hsl(var(--muted-foreground))" },
+  ];
+
+  return (
+    <AnalysisBlock description="品牌在人工智能生成回答中的整体情绪倾向。" title="情绪得分">
+      <ChartPanel legend={sentimentLegend} title="情绪得分" value="58%">
+        <LineTrendChart data={trendData} max={100} min={0} />
+      </ChartPanel>
+      <RankingTable
+        mode="sentiment"
+        onExpand={() => navigate?.("insights")}
+        rows={filteredSentimentRows}
+        selectedBrand={selectedBrand}
+        title="情绪得分排名"
+        value="#2"
+        valueLabel="情绪得分"
+      />
+    </AnalysisBlock>
   );
 }
 
@@ -752,25 +668,15 @@ function CitationCategoryCard() {
             </span>
           </div>
         </div>
-        <div className="grid gap-3 px-5 py-5">
-          {citationCategories.map((category) => (
-            <div className="grid grid-cols-[minmax(0,1fr)_48px] items-center gap-4" key={category.label}>
-              <div className="relative h-11 overflow-hidden rounded-lg bg-muted/60">
-                <div
-                  className="absolute inset-y-0 left-0 rounded-lg bg-muted"
-                  style={{ width: `${Math.max(category.value, 3)}%` }}
-                />
-                <div className="relative flex h-full min-w-0 items-center gap-3 px-4">
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: category.color }} />
-                  <span className="min-w-0 truncate text-sm font-semibold">{category.label}</span>
-                  <span className="shrink-0 text-sm font-medium text-foreground/80">{category.name}</span>
-                </div>
-              </div>
-              <span className="text-right text-sm font-semibold tabular-nums text-muted-foreground">
-                {category.value}%
-              </span>
-            </div>
-          ))}
+        <div className="px-5 py-5">
+          <HorizontalBarChart
+            data={citationCategories.map((category) => ({
+              label: category.label,
+              value: category.value,
+              color: category.color,
+            }))}
+            height={320}
+          />
         </div>
       </Card>
     </section>
@@ -919,7 +825,7 @@ function CitationContent() {
         <SectionIntro description="creativehit.ai 被人工智能生成回答引用的频率。" title="引用占比" />
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.06fr)_minmax(360px,0.94fr)]">
           <ChartPanel legend={citationLegend} title="引用占比" value="0%">
-            <TrendChart data={citationTrend} max={1} min={0} />
+            <LineTrendChart data={citationTrend} max={1} min={0} />
           </ChartPanel>
           <CitationTable />
         </div>
@@ -1157,24 +1063,13 @@ function AllChatsContent({ filters }: { filters: GlobalFilterState }) {
   );
 }
 
-function EmptyTabContent({ title }: { title: string }) {
-  return (
-    <Card className="min-h-[280px] rounded-lg border border-dashed border-border/80 p-8 shadow-none">
-      <div className="flex h-full min-h-[220px] flex-col items-center justify-center text-center">
-        <h2 className="m-0 text-base font-semibold">{title}</h2>
-        <p className="m-0 mt-2 text-sm text-muted-foreground">暂无内容</p>
-      </div>
-    </Card>
-  );
-}
-
 export function OverviewPage({ filters, navigate }: PageProps) {
   const [activeTab, setActiveTab] = useState<OverviewTab>("visibility");
 
   const tabContent = {
     visibility: <VisibilityContent filters={filters} navigate={navigate} />,
     citation: <CitationContent />,
-    sentiment: <EmptyTabContent title="情绪" />,
+    sentiment: <SentimentContent filters={filters} navigate={navigate} />,
     chats: <AllChatsContent filters={filters} />,
   }[activeTab];
 

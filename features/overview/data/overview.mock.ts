@@ -67,6 +67,26 @@ export const averagePositionTrend = [
   { date: "07-03", value: 3.46 },
 ];
 
+// 情绪得分趋势（0-100，数值越高代表正面情绪占比越高）
+export const sentimentTrend = [
+  { date: "06-27", value: 52 },
+  { date: "06-28", value: 54 },
+  { date: "06-29", value: 53 },
+  { date: "06-30", value: 56 },
+  { date: "07-01", value: 58 },
+  { date: "07-02", value: 57 },
+  { date: "07-03", value: 58 },
+];
+
+// 情绪得分排名（按 sentiment 降序）
+export const sentimentRows: BrandMetric[] = [
+  { name: "OpenAI", score: 96, sov: 6.2, sentiment: 66, position: 1 },
+  { name: "Midjourney", score: 100, sov: 7.7, sentiment: 58, position: 3.5 },
+  { name: "Claude", score: 82, sov: 5.1, sentiment: 57, position: 2 },
+  { name: "Autodraw", score: 84, sov: 5.4, sentiment: 55, position: 2 },
+  { name: "Adobe", score: 100, sov: 7.7, sentiment: 54, position: 4.8 },
+];
+
 export const shareOfVoice: ShareOfVoiceItem[] = [
   { name: "Midjourney", value: 7.7, color: "#22C55E" },
   { name: "Adobe", value: 7.7, color: "#EF4444" },
