@@ -1,8 +1,23 @@
 import type { GlobalFilterOption, GlobalFilterState } from "@/types/analytics";
 
+function formatDateValue(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function getDefaultDateRange() {
+  const endDate = new Date();
+  const startDate = new Date(endDate);
+  startDate.setDate(endDate.getDate() - 6);
+
+  return {
+    endDate: formatDateValue(endDate),
+    startDate: formatDateValue(startDate),
+  };
+}
+
 export const defaultGlobalFilters: GlobalFilterState = {
   brands: [],
-  dateRange: "7d",
+  dateRange: getDefaultDateRange(),
   models: [],
   topics: [],
 };

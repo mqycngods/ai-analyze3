@@ -16,7 +16,9 @@ export function MultiLineTrendChart({
   max,
   min,
   unit = "%",
+  invert = false,
   height = 260,
+  showLegend = true,
 }: MultiLineTrendChartProps) {
   const option = useMemo(() => {
     const t = chartTheme();
@@ -26,8 +28,8 @@ export function MultiLineTrendChart({
       grid: {
         left: 42,
         right: 20,
-        top: 36,
-        bottom: 48,
+        top: showLegend ? 36 : 18,
+        bottom: showLegend ? 48 : 28,
         containLabel: false,
       },
       tooltip: {
@@ -44,7 +46,7 @@ export function MultiLineTrendChart({
         },
       },
       legend: {
-        show: true,
+        show: showLegend,
         bottom: 0,
         icon: "roundRect" as const,
         itemWidth: 8,
@@ -69,8 +71,9 @@ export function MultiLineTrendChart({
       },
       yAxis: {
         type: "value" as const,
-        min,
-        max,
+        min: invert ? max : min,
+        max: invert ? min : max,
+        inverse: invert,
         axisLine: { show: false },
         axisTick: { show: false },
         axisLabel: {
@@ -135,7 +138,7 @@ export function MultiLineTrendChart({
         };
       }),
     };
-  }, [data, series, max, min, unit]);
+  }, [data, series, max, min, unit, invert, showLegend]);
 
   return <BaseEChart option={option} height={height} />;
 }

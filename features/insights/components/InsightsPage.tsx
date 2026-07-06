@@ -75,11 +75,13 @@ function SummaryStrip() {
 }
 
 function filterTrendByDate<T>(items: T[], dateRange: GlobalFilterState["dateRange"]) {
-  const rangeSize = {
-    "7d": 7,
-    "30d": 30,
-    "90d": 90,
-  }[dateRange];
+  if (!dateRange.startDate || !dateRange.endDate) {
+    return items;
+  }
+
+  const start = new Date(`${dateRange.startDate}T00:00:00`);
+  const end = new Date(`${dateRange.endDate}T23:59:59`);
+  const rangeSize = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
 
   return items.slice(-rangeSize);
 }

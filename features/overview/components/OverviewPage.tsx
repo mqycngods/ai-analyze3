@@ -24,7 +24,7 @@ import {
   visibilityRows,
   visibilityTrend,
 } from "@/features/overview/data/overview.mock";
-import { DonutChart, HorizontalBarChart, LineTrendChart } from "@/features/shared/components/charts";
+import { DonutChart, HorizontalBarChart, LineTrendChart, MultiLineTrendChart } from "@/features/shared/components/charts";
 import type { BrandMetric, GlobalFilterState, ShareOfVoiceItem } from "@/types/analytics";
 import type { NavId } from "@/types";
 import { cn } from "@/lib/utils";
@@ -39,7 +39,14 @@ type ChartPanelProps = {
   title: string;
   value: string;
   children: React.ReactNode;
-  legend: readonly { label: string; color: string }[];
+  legend: readonly ChartLegendItem[];
+  onLegendToggle?: (label: string) => void;
+};
+
+type ChartLegendItem = {
+  label: string;
+  color: string;
+  active?: boolean;
 };
 
 type RankingTableProps = {
@@ -322,6 +329,19 @@ const brandColors: Record<string, string> = {
   Other: "#8A8F8D",
 };
 
+const currentCycleLabel = "当前周期";
+const comparisonLabel = "竞品对比";
+
+const visibilityTrendSeries = [
+  { key: "current", label: currentCycleLabel, color: "#3366FF", area: true },
+  { key: "comparison", label: comparisonLabel, color: "#94A3B8", area: false },
+];
+
+const averagePositionTrendSeries = [
+  { key: "current", label: currentCycleLabel, color: "#3366FF", area: true },
+  { key: "comparison", label: comparisonLabel, color: "#94A3B8", area: false },
+];
+
 function filterBrandRows(rows: BrandMetric[], selectedBrands: string[]) {
   if (selectedBrands.length === 0) return rows;
   return rows.filter((row) => selectedBrands.includes(row.name));
@@ -333,17 +353,23 @@ function filterShareItems(items: ShareOfVoiceItem[], selectedBrands: string[]) {
 }
 
 function filterTrendByDate<T>(items: T[], dateRange: GlobalFilterState["dateRange"]) {
-  const rangeSize = {
-    "7d": 7,
-    "30d": 30,
-    "90d": 90,
-  }[dateRange];
+  if (!dateRange.startDate || !dateRange.endDate) {
+    return items;
+  }
+
+  const start = new Date(`${dateRange.startDate}T00:00:00`);
+  const end = new Date(`${dateRange.endDate}T23:59:59`);
+  const rangeSize = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
 
   return items.slice(-rangeSize);
 }
 
 function brandInitial(name: string) {
   return name.slice(0, 1).toUpperCase();
+}
+
+function toggleLegendLabel(labels: string[], label: string) {
+  return labels.includes(label) ? labels.filter((item) => item !== label) : [...labels, label];
 }
 
 function SectionIntro({
@@ -372,7 +398,7 @@ function SectionIntro({
   );
 }
 
-function ChartPanel({ title, value, children, legend }: ChartPanelProps) {
+function ChartPanel({ title, value, children, legend, onLegendToggle }: ChartPanelProps) {
   return (
     <Card className="min-h-[260px] rounded-lg border border-border/70 bg-card p-0 shadow-none">
       <div className="flex items-start justify-between gap-3 px-5 pt-4">
@@ -389,13 +415,32 @@ function ChartPanel({ title, value, children, legend }: ChartPanelProps) {
         </button>
       </div>
       <div className="px-4 pb-3 pt-2">{children}</div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/50 px-5 py-3">
-        {legend.map((item) => (
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground" key={item.label}>
-            <span className="h-2 w-2 rounded-[2px]" style={{ background: item.color }} />
-            {item.label}
-          </span>
-        ))}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5 border-t border-border/50 px-5 py-3.5">
+        {legend.map((item) => {
+          const active = item.active ?? true;
+          const interactive = Boolean(onLegendToggle);
+
+          return (
+            <button
+              aria-pressed={interactive ? active : undefined}
+              className={cn(
+                "inline-flex items-center gap-1.5 text-[11px] transition-colors",
+                active ? "text-muted-foreground" : "text-muted-foreground/45",
+                interactive ? "cursor-pointer hover:text-foreground" : "cursor-default"
+              )}
+              disabled={!interactive}
+              key={item.label}
+              onClick={() => onLegendToggle?.(item.label)}
+              type="button"
+            >
+              <span
+                className={cn("h-2 w-2 rounded-[2px] transition-opacity", active ? "opacity-100" : "opacity-30")}
+                style={{ background: item.color }}
+              />
+              <span className="whitespace-nowrap">{item.label}</span>
+            </button>
+          );
+        })}
       </div>
     </Card>
   );
@@ -514,18 +559,42 @@ function TabNavigation({
 }
 
 function VisibilityContent({ filters, navigate }: { filters: GlobalFilterState; navigate?: (page: NavId) => void }) {
+  const [visibilityActiveLegend, setVisibilityActiveLegend] = useState([currentCycleLabel, comparisonLabel]);
+  const [shareActiveLegend, setShareActiveLegend] = useState(shareOfVoice.map((item) => item.name));
+  const [averageActiveLegend, setAverageActiveLegend] = useState([currentCycleLabel, comparisonLabel]);
   const filteredVisibilityRows = filterBrandRows(visibilityRows, filters.brands);
   const filteredShareRows = filterBrandRows(shareRows, filters.brands);
   const filteredRankingRows = filterBrandRows(rankingRows, filters.brands);
   const filteredShareOfVoice = filterShareItems(shareOfVoice, filters.brands);
+  const visibleShareOfVoice = filteredShareOfVoice.filter((item) => shareActiveLegend.includes(item.name));
   const selectedBrand = filters.brands[0] ?? "Midjourney";
   const trendData = filterTrendByDate(visibilityTrend, filters.dateRange);
   const averageTrendData = filterTrendByDate(averagePositionTrend, filters.dateRange);
-  const visibilityLegend = [
-    { label: "当前周期", color: "hsl(var(--primary))" },
-    { label: "竞品对比", color: "hsl(var(--muted-foreground))" },
-  ];
-  const shareLegend = filteredShareOfVoice.map((item) => ({ label: item.name === "Other" ? "其他" : item.name, color: item.color }));
+  const visibilityChartData = trendData.map((point, index) => ({
+    date: point.date,
+    current: point.value,
+    comparison: Math.max(0, Math.min(100, point.value - 12 - Math.max(0, trendData.length - index - 1) * 0.7)),
+  }));
+  const averageChartData = averageTrendData.map((point, index) => ({
+    date: point.date,
+    current: point.value,
+    comparison: Number((point.value + 0.42 + Math.max(0, averageTrendData.length - index - 1) * 0.03).toFixed(2)),
+  }));
+  const visibilityLegend = visibilityTrendSeries.map((item) => ({
+    color: item.color,
+    label: item.label,
+    active: visibilityActiveLegend.includes(item.label),
+  }));
+  const averageLegend = averagePositionTrendSeries.map((item) => ({
+    color: item.color,
+    label: item.label,
+    active: averageActiveLegend.includes(item.label),
+  }));
+  const shareLegend = filteredShareOfVoice.map((item) => ({
+    label: item.name === "Other" ? "其他" : item.name,
+    color: item.color,
+    active: shareActiveLegend.includes(item.name),
+  }));
 
   return (
     <>
@@ -533,8 +602,20 @@ function VisibilityContent({ filters, navigate }: { filters: GlobalFilterState; 
         description="品牌在人工智能生成回答中被提及的频率。"
         title="可见度得分"
       >
-        <ChartPanel legend={visibilityLegend} title="可见性得分" value="100%">
-          <LineTrendChart data={trendData} max={100} min={0} />
+        <ChartPanel
+          legend={visibilityLegend}
+          onLegendToggle={(label) => setVisibilityActiveLegend((current) => toggleLegendLabel(current, label))}
+          title="可见性得分"
+          value="100%"
+        >
+          <MultiLineTrendChart
+            data={visibilityChartData}
+            height={168}
+            max={100}
+            min={0}
+            series={visibilityTrendSeries.filter((item) => visibilityActiveLegend.includes(item.label))}
+            showLegend={false}
+          />
         </ChartPanel>
         <RankingTable
           mode="score"
@@ -551,8 +632,15 @@ function VisibilityContent({ filters, navigate }: { filters: GlobalFilterState; 
         description="品牌在人工智能生成回答中的提及量相对竞品的占比。"
         title="声量份额"
       >
-        <ChartPanel legend={shareLegend} title="声量份额" value="7.7%">
-          <DonutChart data={filteredShareOfVoice} centerLabel="7.7%" />
+        <ChartPanel
+          legend={shareLegend}
+          onLegendToggle={(label) =>
+            setShareActiveLegend((current) => toggleLegendLabel(current, label === "其他" ? "Other" : label))
+          }
+          title="声量份额"
+          value="7.7%"
+        >
+          <DonutChart data={visibleShareOfVoice} centerLabel={visibleShareOfVoice.length > 0 ? "7.7%" : "0%"} />
         </ChartPanel>
         <RankingTable
           mode="share"
@@ -569,8 +657,22 @@ function VisibilityContent({ filters, navigate }: { filters: GlobalFilterState; 
         description="品牌在人工智能生成回答中的平均出现排名。"
         title="平均排名"
       >
-        <ChartPanel legend={visibilityLegend} title="平均排名" value="3.5">
-          <LineTrendChart data={averageTrendData} max={4.0} min={3.0} unit="" invert />
+        <ChartPanel
+          legend={averageLegend}
+          onLegendToggle={(label) => setAverageActiveLegend((current) => toggleLegendLabel(current, label))}
+          title="平均排名"
+          value="3.5"
+        >
+          <MultiLineTrendChart
+            data={averageChartData}
+            height={168}
+            invert
+            max={4.4}
+            min={3.0}
+            series={averagePositionTrendSeries.filter((item) => averageActiveLegend.includes(item.label))}
+            showLegend={false}
+            unit=""
+          />
         </ChartPanel>
         <RankingTable
           mode="rank"

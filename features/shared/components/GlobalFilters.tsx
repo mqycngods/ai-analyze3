@@ -2,10 +2,11 @@
 
 import { Calendar, Check, ChevronDown, Download, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { DayPicker } from "react-day-picker";
+import { zhCN } from "react-day-picker/locale";
 import { Button } from "@/ui";
 import {
   brandFilterOptions,
-  dateRangeOptions,
   defaultGlobalFilters,
   modelFilterOptions,
   topicFilterOptions,
@@ -14,8 +15,21 @@ import { cn } from "@/lib/utils";
 import type { GlobalDateRange, GlobalFilterOption, GlobalFilterState } from "@/types/analytics";
 
 const STUCK_OFFSET = 1;
+const MONTH_NAV_START = new Date(2020, 0);
+const MONTH_NAV_END = new Date(2030, 11);
 
 type FilterKey = "date" | "brands" | "models" | "topics";
+
+type DatePreset = {
+  days: number;
+  label: string;
+};
+
+const datePresets: DatePreset[] = [
+  { days: 2, label: "最近 2 天" },
+  { days: 7, label: "最近 7 天" },
+  { days: 30, label: "最近 30 天" },
+];
 
 type GlobalFiltersProps = {
   className?: string;
@@ -31,9 +45,68 @@ function getSelectedLabel(options: GlobalFilterOption[], selected: string[], fal
   return selected.length === 1 ? first : `${first} +${selected.length - 1}`;
 }
 
+function parseDateValue(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  return new Date(`${value}T00:00:00`);
+}
+
+function formatDateValue(date?: Date) {
+  if (!date) {
+    return "";
+  }
+
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getRecentRange(days: number): GlobalDateRange {
+  const endDate = new Date();
+  const startDate = new Date(endDate);
+  startDate.setDate(endDate.getDate() - (days - 1));
+
+  return {
+    endDate: formatDateValue(endDate),
+    startDate: formatDateValue(startDate),
+  };
+}
+
+function isSameDateRange(left: GlobalDateRange, right: GlobalDateRange) {
+  return left.startDate === right.startDate && left.endDate === right.endDate;
+}
+
+function formatDateLabel(dateRange: GlobalDateRange) {
+  if (!dateRange.startDate) {
+    return "选择日期";
+  }
+
+  if (!dateRange.endDate) {
+    return `${dateRange.startDate} 起`;
+  }
+
+  return `${dateRange.startDate} 至 ${dateRange.endDate}`;
+}
+
+function getCalendarModifiers(dateRange: GlobalDateRange) {
+  const from = parseDateValue(dateRange.startDate);
+  const to = parseDateValue(dateRange.endDate);
+
+  return {
+    range_end: to,
+    range_middle: from && to && dateRange.startDate !== dateRange.endDate ? { after: from, before: to } : undefined,
+    range_start: from,
+    selected: from && !to ? from : undefined,
+  };
+}
+
 function isDefaultFilters(value: GlobalFilterState) {
   return (
-    value.dateRange === defaultGlobalFilters.dateRange &&
+    value.dateRange.startDate === defaultGlobalFilters.dateRange.startDate &&
+    value.dateRange.endDate === defaultGlobalFilters.dateRange.endDate &&
     value.brands.length === 0 &&
     value.models.length === 0 &&
     value.topics.length === 0
@@ -69,10 +142,7 @@ export function GlobalFilters({ className, value, onChange, onExport }: GlobalFi
   }, []);
 
   const selectedCount = value.brands.length + value.models.length + value.topics.length;
-  const activeDateLabel = useMemo(
-    () => dateRangeOptions.find((option) => option.value === value.dateRange)?.label ?? "最近 7 天",
-    [value.dateRange]
-  );
+  const activeDateLabel = useMemo(() => formatDateLabel(value.dateRange), [value.dateRange]);
 
   function update(next: Partial<GlobalFilterState>) {
     onChange({ ...value, ...next });
@@ -88,6 +158,41 @@ export function GlobalFilters({ className, value, onChange, onExport }: GlobalFi
 
   function clearMulti(key: "brands" | "models" | "topics") {
     update({ [key]: [] });
+  }
+
+  function selectDatePreset(days: number) {
+    update({ dateRange: getRecentRange(days) });
+  }
+
+  function selectDate(date: Date) {
+    const nextDate = formatDateValue(date);
+
+    if (!value.dateRange.startDate || value.dateRange.endDate) {
+      update({
+        dateRange: {
+          endDate: "",
+          startDate: nextDate,
+        },
+      });
+      return;
+    }
+
+    if (nextDate < value.dateRange.startDate) {
+      update({
+        dateRange: {
+          endDate: "",
+          startDate: nextDate,
+        },
+      });
+      return;
+    }
+
+    update({
+      dateRange: {
+        endDate: nextDate,
+        startDate: value.dateRange.startDate,
+      },
+    });
   }
 
   function renderMultiDropdown(key: "brands" | "models" | "topics", options: GlobalFilterOption[]) {
@@ -162,28 +267,64 @@ export function GlobalFilters({ className, value, onChange, onExport }: GlobalFi
             <ChevronDown size={12} />
           </Button>
           {openKey === "date" ? (
-            <div className="absolute left-0 top-[calc(100%+8px)] z-30 w-44 rounded-lg border border-border bg-popover p-1.5 shadow-lg">
-              {dateRangeOptions.map((option) => {
-                const active = option.value === value.dateRange;
-                return (
-                  <button
-                    aria-current={active ? "true" : undefined}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors hover:bg-muted/60",
-                      active ? "font-semibold text-foreground" : "text-muted-foreground"
-                    )}
-                    key={option.value}
-                    onClick={() => {
-                      update({ dateRange: option.value as GlobalDateRange });
-                      setOpenKey(null);
+            <div className="absolute left-0 top-[calc(100%+8px)] z-30 w-[min(calc(100vw-2rem),560px)] overflow-hidden rounded-md border border-border/80 bg-popover shadow-xl shadow-slate-950/10">
+              <div className="grid grid-cols-[112px_minmax(0,1fr)]">
+                <div className="border-r border-border/70 bg-muted/20 py-3">
+                  {datePresets.map((preset) => {
+                    const range = getRecentRange(preset.days);
+                    const active = isSameDateRange(value.dateRange, range);
+
+                    return (
+                      <button
+                        aria-pressed={active}
+                        className={cn(
+                          "flex h-9 w-full items-center justify-between px-4 text-left text-xs font-medium transition-colors",
+                          active ? "text-foreground" : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
+                        )}
+                        key={preset.days}
+                        onClick={() => selectDatePreset(preset.days)}
+                        type="button"
+                      >
+                        <span className="truncate">{preset.label}</span>
+                        {active ? <Check size={12} /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="bg-popover p-3">
+                  <DayPicker
+                    captionLayout="dropdown"
+                    className="rdp-range-calendar"
+                    defaultMonth={parseDateValue(value.dateRange.endDate || value.dateRange.startDate) ?? new Date()}
+                    endMonth={MONTH_NAV_END}
+                    fixedWeeks
+                    formatters={{
+                      formatWeekdayName: (date) => ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][date.getDay()],
                     }}
+                    locale={zhCN}
+                    modifiers={getCalendarModifiers(value.dateRange)}
+                    modifiersClassNames={{
+                      range_end: "rdp-range_end",
+                      range_middle: "rdp-range_middle",
+                      range_start: "rdp-range_start",
+                      selected: "rdp-selected",
+                    }}
+                    navLayout="around"
+                    numberOfMonths={1}
+                    onDayClick={selectDate}
+                    showOutsideDays
+                    startMonth={MONTH_NAV_START}
+                  />
+                  <button
+                    className="mt-3 flex h-9 w-full items-center justify-center rounded-md border border-border bg-background text-xs font-semibold text-foreground transition-colors hover:bg-muted/60"
+                    onClick={() => update({ dateRange: defaultGlobalFilters.dateRange })}
                     type="button"
                   >
-                    <Check className={active ? "text-primary" : "text-transparent"} size={12} />
-                    {option.label}
+                    重置选择
                   </button>
-                );
-              })}
+                </div>
+              </div>
             </div>
           ) : null}
         </div>

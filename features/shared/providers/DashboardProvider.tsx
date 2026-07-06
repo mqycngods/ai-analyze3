@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState } from "react";
+import { usePathname } from "next/navigation";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { defaultGlobalFilters } from "@/features/shared/data/filter-options";
 import type { GlobalFilterState } from "@/types/analytics";
 
@@ -16,8 +17,13 @@ type DashboardContextValue = {
 const DashboardContext = createContext<DashboardContextValue | null>(null);
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [globalFilters, setGlobalFilters] = useState<GlobalFilterState>(defaultGlobalFilters);
   const [toast, setToast] = useState("");
+
+  useEffect(() => {
+    setGlobalFilters(defaultGlobalFilters);
+  }, [pathname]);
 
   const notify = useCallback((message: string) => {
     setToast(message);

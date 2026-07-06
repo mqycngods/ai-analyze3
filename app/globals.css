@@ -1,3 +1,5 @@
+@import "react-day-picker/dist/style.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -87,6 +89,157 @@
 }
 
 @layer utilities {
+  .rdp-range-calendar {
+    --rdp-accent-color: hsl(var(--foreground));
+    --rdp-accent-background-color: hsl(var(--muted));
+    --rdp-day-height: 36px;
+    --rdp-day-width: 36px;
+    --rdp-day_button-border-radius: 6px;
+    --rdp-day_button-border: 1px solid transparent;
+    --rdp-day_button-height: 31px;
+    --rdp-day_button-width: 31px;
+    --rdp-dropdown-gap: 10px;
+    --rdp-nav_button-height: 28px;
+    --rdp-nav_button-width: 28px;
+    --rdp-nav-height: 34px;
+    --rdp-range_middle-background-color: hsl(var(--muted));
+    --rdp-range_middle-color: hsl(var(--foreground));
+    --rdp-range_start-date-background-color: hsl(var(--foreground));
+    --rdp-range_end-date-background-color: hsl(var(--foreground));
+    --rdp-selected-border: 1px solid transparent;
+
+    width: 100%;
+    color: hsl(var(--foreground));
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  .rdp-range-calendar .rdp-months,
+  .rdp-range-calendar .rdp-month,
+  .rdp-range-calendar .rdp-month_grid {
+    width: 100%;
+    max-width: none;
+  }
+
+  .rdp-range-calendar .rdp-month_caption {
+    height: var(--rdp-nav-height);
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .rdp-range-calendar .rdp-nav {
+    inset-inline: 0;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+
+  .rdp-range-calendar .rdp-button_previous,
+  .rdp-range-calendar .rdp-button_next {
+    border-radius: 6px;
+    color: hsl(var(--foreground));
+    pointer-events: auto;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .rdp-range-calendar .rdp-button_previous:hover,
+  .rdp-range-calendar .rdp-button_next:hover {
+    background: hsl(var(--muted));
+  }
+
+  .rdp-range-calendar .rdp-chevron {
+    width: 12px;
+    height: 12px;
+    fill: hsl(var(--foreground));
+  }
+
+  .rdp-range-calendar .rdp-dropdowns {
+    gap: 12px;
+  }
+
+  .rdp-range-calendar .rdp-dropdown_root {
+    min-width: 54px;
+    justify-content: center;
+    color: hsl(var(--foreground));
+  }
+
+  .rdp-range-calendar .rdp-dropdown_root .rdp-chevron {
+    width: 10px;
+    height: 10px;
+    margin-left: 4px;
+    opacity: 0.35;
+  }
+
+  .rdp-range-calendar .rdp-caption_label {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .rdp-range-calendar .rdp-weekday {
+    height: 28px;
+    padding: 0;
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+    font-weight: 500;
+    opacity: 0.75;
+  }
+
+  .rdp-range-calendar .rdp-day {
+    padding: 2px;
+  }
+
+  .rdp-range-calendar .rdp-day_button {
+    margin: 0 auto;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .rdp-range-calendar .rdp-day_button:hover {
+    background: hsl(var(--muted));
+  }
+
+  .rdp-range-calendar .rdp-outside {
+    color: hsl(var(--muted-foreground));
+    opacity: 0.28;
+  }
+
+  .rdp-range-calendar .rdp-selected {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .rdp-range-calendar .rdp-selected .rdp-day_button {
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
+  }
+
+  .rdp-range-calendar .rdp-range_start,
+  .rdp-range-calendar .rdp-range_end {
+    background: transparent;
+  }
+
+  .rdp-range-calendar .rdp-range_start .rdp-day_button,
+  .rdp-range-calendar .rdp-range_end .rdp-day_button {
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
+  }
+
+  .rdp-range-calendar .rdp-range_middle {
+    background: transparent;
+  }
+
+  .rdp-range-calendar .rdp-range_middle .rdp-day_button {
+    border-radius: 6px;
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
+  }
+
+  .rdp-range-calendar .rdp-today:not(.rdp-outside, .rdp-selected) {
+    color: hsl(var(--foreground));
+  }
+
   /* 对话详情抽屉动画 */
   @keyframes chat-drawer-overlay-in {
     from {

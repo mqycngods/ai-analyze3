@@ -342,14 +342,6 @@ export function BrandsPage({ notify }: PageProps) {
   return (
     <>
       <div className="grid gap-4">
-        <section className="flex flex-col gap-3 border-b border-border/70 pb-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h1 className="m-0 text-xl font-semibold tracking-tight">品牌</h1>
-            <p className="m-0 mt-2 text-sm text-muted-foreground">管理用于 AI 可见性追踪的品牌、监控名称和域名范围。</p>
-          </div>
-          <span className="text-xs text-muted-foreground">{rows.length} 个品牌正在追踪</span>
-        </section>
-
         <BrandTable
           onDeleteBrand={deleteBrand}
           onOpenAddBrand={() => setIsAddDrawerOpen(true)}

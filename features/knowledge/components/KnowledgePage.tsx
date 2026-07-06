@@ -520,12 +520,6 @@ export function KnowledgePage({ notify }: PageProps) {
   return (
     <>
       <div className="grid gap-6">
-        <div className="flex items-center gap-8 border-b border-border/70">
-          <button className="border-b-2 border-foreground pb-3 text-sm font-medium" type="button">知识库</button>
-          <button className="pb-3 text-sm text-muted-foreground" type="button">品牌工具包</button>
-          <button className="pb-3 text-sm text-muted-foreground" type="button">受众分群</button>
-        </div>
-
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <label className="relative block w-full max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
@@ -533,14 +527,6 @@ export function KnowledgePage({ notify }: PageProps) {
           </label>
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground">已使用 0.02 / 100 MB</span>
-            <div className="flex rounded-md border border-border bg-card">
-              <button className="grid h-8 w-8 place-items-center bg-muted" type="button" aria-label="网格视图">
-                <Grid2X2 size={14} />
-              </button>
-              <button className="grid h-8 w-8 place-items-center text-muted-foreground" type="button" aria-label="列表视图">
-                <List size={14} />
-              </button>
-            </div>
             <Button className="gap-2 rounded-md bg-foreground text-background hover:bg-foreground/90" size="sm" onClick={() => setModal("createKnowledge")} type="button">
               <Plus size={14} />
               添加知识库

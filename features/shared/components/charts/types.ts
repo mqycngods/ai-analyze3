@@ -58,8 +58,12 @@ export type MultiLineTrendChartProps = {
   min: number;
   /** Y 轴单位，默认 "%" */
   unit?: string;
+  /** 是否反转 Y 轴（排名场景数值越小越好） */
+  invert?: boolean;
   /** 图表高度 */
   height?: number | string;
+  /** 是否显示 ECharts 内置图例，默认显示 */
+  showLegend?: boolean;
 };
 
 /** DonutChart 数据项 */
